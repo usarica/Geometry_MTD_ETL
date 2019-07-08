@@ -1,0 +1,31 @@
+#ifndef DetectorConstruction_h
+#define DetectorConstruction_h
+
+#include "G4VUserDetectorConstruction.hh"
+#include "globals.hh"
+
+
+class G4VPhysicalVolume;
+class G4LogicalVolume;
+
+
+// Detector construction class to define materials and geometry.
+class DetectorConstruction : public G4VUserDetectorConstruction{
+protected:
+  G4bool fCheckOverlaps; // Option to switch on/off checking of volumes overlaps
+  G4LogicalVolume* fScoringVolume;
+
+  void DefineMaterials();
+  G4VPhysicalVolume* DefineVolumes();
+
+public:
+  DetectorConstruction();
+  virtual ~DetectorConstruction();
+
+  virtual G4VPhysicalVolume* Construct();
+
+  G4LogicalVolume* GetScoringVolume() const{ return fScoringVolume; }
+
+};
+
+#endif
