@@ -39,9 +39,9 @@ void DetectorConstruction::DefineMaterials(){
   G4double z;
   G4double density;
 
-  nist->FindOrBuildMaterial("G4_AIR");
-  nist->FindOrBuildMaterial("G4_CARBON_DIOXIDE");
-  nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
+  G4Material* Air = nist->FindOrBuildMaterial("G4_AIR");
+  G4Material* CO2 = nist->FindOrBuildMaterial("G4_CARBON_DIOXIDE");
+  //nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
 
   //G4double env_temp = (273.16+15.00)*kelvin; // NTP_Temperature=293.15*kelvin
   //G4double env_pressure = STP_Pressure; // in units of pascal
@@ -63,7 +63,10 @@ void DetectorConstruction::DefineMaterials(){
   G4Element* Aluminum = nist->FindOrBuildElement("Al");
   G4Element* Nitrogen = nist->FindOrBuildElement("N");
   G4Element* Carbon = nist->FindOrBuildElement("C");
+  G4Element* Hydrogen = nist->FindOrBuildElement("H");
   G4Element* Silicon = nist->FindOrBuildElement("Si");
+  G4Element* Tin = nist->FindOrBuildElement("Sn");
+  G4Element* Silver = nist->FindOrBuildElement("Ag");
   G4cout << "DetectorConstruction::DefineMaterials: Elements built." << G4endl;
 
   if (!Aluminum) G4cerr << "DetectorConstruction::DefineMaterials: Element Al not found!" << G4endl;
@@ -76,17 +79,24 @@ void DetectorConstruction::DefineMaterials(){
   AlN->AddElement(Aluminum, (G4int) 1);
   AlN->AddElement(Nitrogen, (G4int) 1);
 
-  G4Material* FR4 = new G4Material("FR4", 1.85*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approcimate?
+  G4Material* FR4 = new G4Material("FR4", 1.85*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
   FR4->AddElement(Carbon, (G4int) 1);
 
-  G4Material* Epoxy = new G4Material("Epoxy", 1.1*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // Density approximate
+  G4Material* Epoxy = new G4Material("Epoxy", 1.1*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // Density approximate
   Epoxy->AddElement(Carbon, (G4int) 1);
+  Epoxy->AddElement(Hydrogen, (G4int) 1);
 
-  G4Material* Laird = new G4Material("Laird", 1.*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // Density approximate
+  G4Material* Laird = new G4Material("Laird", 1.*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // Density approximate
   Laird->AddElement(Carbon, (G4int) 1);
+  Laird->AddElement(Hydrogen, (G4int) 1);
 
-  G4Material* SensorBump = new G4Material("SensorBump", 1.*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME
-  SensorBump->AddElement(Carbon, (G4int) 1); // FIXME
+  G4Material* SnAg = new G4Material("SnAg", (7.31*0.5 + 10.49*0.5)*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure);
+  SnAg->AddElement(Tin, (G4double) 0.5);
+  SnAg->AddElement(Silver, (G4double) 0.5);
+
+  G4Material* SensorBump = new G4Material("SensorBump", (SnAg->GetDensity()*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure);
+  SensorBump->AddMaterial(SnAg, (G4double) 0.1);
+  SensorBump->AddMaterial(Air, (G4double) 0.9);
 
   G4cout << "DetectorConstruction::DefineMaterials: AlN built!" << G4endl;
 
