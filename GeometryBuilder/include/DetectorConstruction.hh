@@ -3,10 +3,13 @@
 
 #include "G4VUserDetectorConstruction.hh"
 #include "globals.hh"
+#include "G4Box.hh"
+#include "G4ThreeVector.hh"
 
 
 class G4VPhysicalVolume;
 class G4LogicalVolume;
+class G4PVPlacement;
 
 
 // Detector construction class to define materials and geometry.
@@ -17,6 +20,8 @@ protected:
 
   void DefineMaterials();
   G4VPhysicalVolume* DefineVolumes();
+  void BuildOneSensorModule(G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
+  void BuildTwoSensorModule(G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
 
 public:
   DetectorConstruction();

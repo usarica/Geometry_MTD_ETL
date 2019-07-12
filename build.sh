@@ -1,6 +1,6 @@
 #!/bin/bash
 
-projdir=${pwd}/$1
+projdir=$(pwd)/$1
 builddir=${projdir}_build
 
 rm -rf $builddir
