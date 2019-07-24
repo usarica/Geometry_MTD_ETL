@@ -67,6 +67,7 @@ void DetectorConstruction::DefineMaterials(){
   G4Element* Silicon = nist->FindOrBuildElement("Si");
   G4Element* Tin = nist->FindOrBuildElement("Sn");
   G4Element* Silver = nist->FindOrBuildElement("Ag");
+  G4Element* Copper = nist->FindOrBuildElement("Cu");
   G4cout << "DetectorConstruction::DefineMaterials: Elements built." << G4endl;
 
   if (!Aluminum) G4cerr << "DetectorConstruction::DefineMaterials: Element Al not found!" << G4endl;
@@ -82,6 +83,9 @@ void DetectorConstruction::DefineMaterials(){
   G4Material* FR4 = new G4Material("FR4", 1.85*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
   FR4->AddElement(Carbon, (G4int) 1);
 
+  G4Material* PCB = new G4Material("PCB", 1.85*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
+  PCB->AddElement(Carbon, (G4int) 1);
+
   G4Material* Epoxy = new G4Material("Epoxy", 1.1*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // Density approximate
   Epoxy->AddElement(Carbon, (G4int) 1);
   Epoxy->AddElement(Hydrogen, (G4int) 1);
@@ -90,13 +94,17 @@ void DetectorConstruction::DefineMaterials(){
   Laird->AddElement(Carbon, (G4int) 1);
   Laird->AddElement(Hydrogen, (G4int) 1);
 
-  G4Material* SnAg = new G4Material("SnAg", (7.31*0.5 + 10.49*0.5)*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure);
+  G4Material* SnAg = new G4Material("SnAg", (7.31*0.5 + 10.49*0.5)*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc.
   SnAg->AddElement(Tin, (G4double) 0.5);
   SnAg->AddElement(Silver, (G4double) 0.5);
 
-  G4Material* SensorBump = new G4Material("SensorBump", (SnAg->GetDensity()*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure);
+  G4Material* SensorBump = new G4Material("SensorBump", (SnAg->GetDensity()*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc
   SensorBump->AddMaterial(SnAg, (G4double) 0.1);
   SensorBump->AddMaterial(Air, (G4double) 0.9);
+
+  G4Material* ServiceConnector = new G4Material("ServiceConnector", (8.96*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc
+  ServiceConnector->AddMaterial(Copper, (G4double) 0.1);
+  ServiceConnector->AddMaterial(Air, (G4double) 0.9);
 
   G4cout << "DetectorConstruction::DefineMaterials: AlN built!" << G4endl;
 
@@ -130,7 +138,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double etrocSize_X = 20.8*mm;
   G4double etrocSize_Y = 22.3*mm;
   G4double etrocSize_Z = 0.25*mm;
-  G4Material* etrocMat = G4Material::GetMaterial("FR4");
+  G4Material* etrocMat = G4Material::GetMaterial("Si");
   G4VisAttributes* etrocVisAttr = new G4VisAttributes(G4Colour::Green()); etrocVisAttr->SetVisibility(true);
 
   // Laird film
@@ -144,7 +152,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double lgadSize_X = 42.0*mm;
   G4double lgadSize_Y = 21.2*mm;
   G4double lgadSize_Z = 0.3*mm;
-  G4Material* lgadMat = G4Material::GetMaterial("Si"); // FIXME
+  G4Material* lgadMat = G4Material::GetMaterial("Si");
   G4VisAttributes* lgadVisAttr = new G4VisAttributes(G4Colour::Yellow()); lgadVisAttr->SetVisibility(true);
 
   // Solder bumps
@@ -359,7 +367,7 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double etrocSize_X = 20.8*mm;
   G4double etrocSize_Y = 22.3*mm;
   G4double etrocSize_Z = 0.25*mm;
-  G4Material* etrocMat = G4Material::GetMaterial("FR4");
+  G4Material* etrocMat = G4Material::GetMaterial("Si");
   G4VisAttributes* etrocVisAttr = new G4VisAttributes(G4Colour::Green()); etrocVisAttr->SetVisibility(true);
 
   // Laird film
@@ -373,7 +381,7 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double lgadSize_X = 42.0*mm;
   G4double lgadSize_Y = 21.2*mm;
   G4double lgadSize_Z = 0.3*mm;
-  G4Material* lgadMat = G4Material::GetMaterial("Si"); // FIXME
+  G4Material* lgadMat = G4Material::GetMaterial("Si");
   G4VisAttributes* lgadVisAttr = new G4VisAttributes(G4Colour::Yellow()); lgadVisAttr->SetVisibility(true);
 
   // Solder bumps
@@ -593,6 +601,135 @@ void DetectorConstruction::BuildTwoSensorModule(
 }
 
 
+void DetectorConstruction::BuildSensorServiceHybrid(
+  int const& nSensorsPerSide, // 6 or 3
+  G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos,
+  G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV
+){
+  // See Figs. 3.61 and 3.62 in the MTD TDR for the diagrams
+  G4double servicehybridSize_X = 56.5*mm; // FIXME: Not sure what the width of the service hybrid is
+  G4double servicehybridSize_Y = 43.1*((G4double) nSensorsPerSide)*mm;
+
+  // Thermal pad
+  G4double thermalpadSize_X = servicehybridSize_X;
+  G4double thermalpadSize_Y = servicehybridSize_Y;
+  G4double thermalpadSize_Z = 0.25*mm;
+  G4Material* thermalpadMat = G4Material::GetMaterial("Epoxy");
+  G4VisAttributes* thermalpadVisAttr = new G4VisAttributes(G4Colour::Brown()); thermalpadVisAttr->SetVisibility(true);
+
+  // Readout board
+  G4double readoutboardSize_X = servicehybridSize_X;
+  G4double readoutboardSize_Y = servicehybridSize_Y;
+  G4double readoutboardSize_Z = 1.*mm;
+  G4Material* readoutboardMat = G4Material::GetMaterial("PCB");
+  G4VisAttributes* readoutboardVisAttr = new G4VisAttributes(G4Colour::Brown()); readoutboardVisAttr->SetVisibility(true);
+
+  // Connectors/flex/stiffener
+  G4double connectorSize_X = servicehybridSize_X;
+  G4double connectorSize_Y = servicehybridSize_Y;
+  G4double connectorSize_Z = 1.5*mm;
+  G4Material* connectorMat = G4Material::GetMaterial("ServiceConnector");
+  G4VisAttributes* connectorVisAttr = new G4VisAttributes(G4Colour::Brown()); connectorVisAttr->SetVisibility(true);
+
+  // Power board
+  G4double powerboardSize_X = servicehybridSize_X;
+  G4double powerboardSize_Y = servicehybridSize_Y;
+  G4double powerboardSize_Z = 3.1*mm;
+  G4Material* powerboardMat = G4Material::GetMaterial("PCB");
+  G4VisAttributes* powerboardVisAttr = new G4VisAttributes(G4Colour::Brown()); powerboardVisAttr->SetVisibility(true);
+
+  G4double servicehybridSize_Z = (thermalpadSize_Z+readoutboardSize_Z+connectorSize_Z+powerboardSize_Z);
+  G4Material* servicehybridMat = G4Material::GetMaterial("Vacuum");
+  G4VisAttributes* servicehybridVisAttr = new G4VisAttributes(G4Colour::Gray()); servicehybridVisAttr->SetVisibility(true);
+
+  // Build the module
+  serviceBox = new G4Box(
+    "ETL12SensorServiceHybrid",
+    servicehybridSize_X/2., servicehybridSize_Y/2., servicehybridSize_Z/2.
+  );
+  serviceLogical = new G4LogicalVolume(
+    serviceBox,
+    servicehybridMat,
+    "ETL12SensorServiceHybrid"
+  );
+  serviceLogical->SetVisAttributes(servicehybridVisAttr);
+  servicePV = new G4PVPlacement(
+    0, relativePos,
+    serviceLogical, "ETL12SensorServiceHybrid", motherLogical,
+    false, 0, fCheckOverlaps
+  );
+
+
+  // Thermal pad
+  G4Box* thermalpadBox = new G4Box(
+    "ETL12SensorServiceHybrid_ThermalPad",
+    thermalpadSize_X/2., thermalpadSize_Y/2., thermalpadSize_Z/2.
+  );
+  G4LogicalVolume* thermalpadLogical = new G4LogicalVolume(
+    thermalpadBox,
+    thermalpadMat,
+    "ETL12SensorServiceHybrid_ThermalPad"
+  );
+  thermalpadLogical->SetVisAttributes(thermalpadVisAttr);
+  G4PVPlacement* thermalpadPV = new G4PVPlacement(
+    0, G4ThreeVector(0, 0, (thermalpadSize_Z-serviceSize_Y)/2.),
+    thermalpadLogical, "ETL12SensorServiceHybrid_ThermalPad", serviceLogical,
+    false, 0, fCheckOverlaps
+  );
+
+  // Readout board
+  G4Box* readoutboardBox = new G4Box(
+    "ETL12SensorServiceHybrid_ReadoutBoard",
+    readoutboardSize_X/2., readoutboardSize_Y/2., readoutboardSize_Z/2.
+  );
+  G4LogicalVolume* readoutboardLogical = new G4LogicalVolume(
+    readoutboardBox,
+    readoutboardMat,
+    "ETL12SensorServiceHybrid_ReadoutBoard"
+  );
+  readoutboardLogical->SetVisAttributes(readoutboardVisAttr);
+  G4PVPlacement* readoutboardPV = new G4PVPlacement(
+    0, G4ThreeVector(0, 0, thermalpadSize_Z+(readoutboardSize_Z-serviceSize_Y)/2.),
+    readoutboardLogical, "ETL12SensorServiceHybrid_ReadoutBoard", serviceLogical,
+    false, 0, fCheckOverlaps
+  );
+
+  // Connectors
+  G4Box* connectorBox = new G4Box(
+    "ETL12SensorServiceHybrid_Connectors",
+    connectorSize_X/2., connectorSize_Y/2., connectorSize_Z/2.
+  );
+  G4LogicalVolume* connectorLogical = new G4LogicalVolume(
+    connectorBox,
+    connectorMat,
+    "ETL12SensorServiceHybrid_Connectors"
+  );
+  connectorLogical->SetVisAttributes(connectorVisAttr);
+  G4PVPlacement* connectorPV = new G4PVPlacement(
+    0, G4ThreeVector(0, 0, thermalpadSize_Z+readoutboardSize_Z+(connectorSize_Z-serviceSize_Y)/2.),
+    connectorLogical, "ETL12SensorServiceHybrid_Connectors", serviceLogical,
+    false, 0, fCheckOverlaps
+  );
+
+  // Power board
+  G4Box* powerboardBox = new G4Box(
+    "ETL12SensorServiceHybrid_PowerBoard",
+    powerboardSize_X/2., powerboardSize_Y/2., powerboardSize_Z/2.
+  );
+  G4LogicalVolume* powerboardLogical = new G4LogicalVolume(
+    powerboardBox,
+    powerboardMat,
+    "ETL12SensorServiceHybrid_PowerBoard"
+  );
+  powerboardLogical->SetVisAttributes(powerboardVisAttr);
+  G4PVPlacement* powerboardPV = new G4PVPlacement(
+    0, G4ThreeVector(0, 0, thermalpadSize_Z+readoutboardSize_Z+connectorSize_Z+(powerboardSize_Z-serviceSize_Y)/2.),
+    powerboardLogical, "ETL12SensorServiceHybrid_PowerBoard", serviceLogical,
+    false, 0, fCheckOverlaps
+  );
+}
+
+
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Setup materials
@@ -662,6 +799,27 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     fCheckOverlaps            //overlaps checking
   );
 
+  G4Box* servicehybrid6Box;
+  G4LogicalVolume* servicehybrid6Logical;
+  G4PVPlacement* servicehybrid6PV;
+  BuildSensorServiceHybrid(
+    6,
+    logicEnv, G4ThreeVector(0, 0, 0),
+    servicehybrid6Box, servicehybrid6Logical, servicehybrid6PV
+  );
+
+  /*
+  G4Box* servicehybrid3Box;
+  G4LogicalVolume* servicehybrid3Logical;
+  G4PVPlacement* servicehybrid3PV;
+  BuildSensorServiceHybrid(
+    3,
+    logicEnv, G4ThreeVector(0, 0, 0),
+    servicehybrid3Box, servicehybrid3Logical, servicehybrid3PV
+  );
+  */
+
+  /*
   G4Box* moduleBox;
   G4LogicalVolume* moduleLogical;
   G4PVPlacement* modulePV;
@@ -669,7 +827,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     logicEnv, G4ThreeVector(0,0,0),
     moduleBox, moduleLogical, modulePV
   );
-
+  */
 
   // Set Shape2 as scoring volume
   fScoringVolume = moduleLogical;
