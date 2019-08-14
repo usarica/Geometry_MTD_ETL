@@ -124,6 +124,7 @@ void DetectorConstruction::DefineMaterials(){
 
 
 void DetectorConstruction::BuildOneSensorModule(
+  bool rightFlank,
   G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos,
   G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV
 ){
@@ -279,7 +280,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   lairdfilmLogical->SetVisAttributes(lairdfilmVisAttr);
   G4PVPlacement* lairdfilmPV = new G4PVPlacement(
-    0, G4ThreeVector((lairdfilmSize_X-baseplateSize_X)/2., 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((lairdfilmSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
     lairdfilmLogical,
     detname.c_str(),
     moduleLogical,
@@ -299,14 +300,14 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   etrocLogical->SetVisAttributes(etrocVisAttr);
   G4PVPlacement* etroc1PV = new G4PVPlacement(
-    0, G4ThreeVector((etrocSize_X-baseplateSize_X)/2., -etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((etrocSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), -etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
   G4PVPlacement* etroc2PV = new G4PVPlacement(
-    0, G4ThreeVector((etrocSize_X-baseplateSize_X)/2., +etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((etrocSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), +etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -327,7 +328,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   bumpsLogical->SetVisAttributes(bumpsVisAttr);
   G4PVPlacement* bumpsPV = new G4PVPlacement(
-    0, G4ThreeVector((bumpsSize_X-baseplateSize_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((bumpsSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
     bumpsLogical,
     detname.c_str(),
     moduleLogical,
@@ -347,7 +348,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   lgadLogical->SetVisAttributes(lgadVisAttr);
   G4PVPlacement* lgadPV = new G4PVPlacement(
-    0, G4ThreeVector((lgadSize_X-baseplateSize_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((lgadSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
     detname.c_str(),
     moduleLogical,
@@ -367,7 +368,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   epoxyLogical->SetVisAttributes(epoxyVisAttr);
   G4PVPlacement* epoxyPV = new G4PVPlacement(
-    0, G4ThreeVector((epoxySize_X-baseplateSize_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((epoxySize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
     epoxyLogical,
     detname.c_str(),
     moduleLogical,
@@ -387,7 +388,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   coverplateLogical->SetVisAttributes(coverplateVisAttr);
   G4PVPlacement* coverplatePV = new G4PVPlacement(
-    0, G4ThreeVector((coverplateSize_X-baseplateSize_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector((coverplateSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
     coverplateLogical,
     detname.c_str(),
     moduleLogical,
@@ -901,11 +902,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
   string detname;
 
-  detname = det_wedge;
-  G4double wedge_Rmin = getDimension(detname+"_Rmin");
-  G4double wedge_Rmax = getDimension(detname+"_Rmax");
-  G4double wedge_Z = getDimension(detname+"_Z");
-
   detname = det_onesensor;
   G4double onesensor_X = getDimension(detname+"_X");
   G4double onesensor_Y = getDimension(detname+"_Y");
@@ -938,6 +934,12 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
                 "MyCode0002", FatalException, msg);
   }
 
+  detname = det_wedge;
+  G4double wedge_Rmin = getDimension(detname+"_Rmin");
+  G4double wedge_Rmax = getDimension(detname+"_Rmax");
+  G4double wedge_Z = getDimension(detname+"_Z");
+  G4double wedge_fullZ = wedge_Z + 2.*std::max(std::max(servicehybrid12_Z, servicehybrid6_Z), std::max(onesensor_Z, twosensor_Z));
+
   // External offsets
   detname = det_offset + "_Module_SensorServiceHybrid_dX";
   G4double sep_X_module_servicehybrid = getDimension(detname);
@@ -949,7 +951,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // World parameters
   G4double world_sizeX = wedge_Rmax*2.;
   G4double world_sizeY = wedge_Rmax*2.;
-  G4double world_sizeZ = wedge_Z;
+  G4double world_sizeZ = wedge_fullZ;
 
   // Generic envelope parameters
   G4double env_sizeX = world_sizeX;
@@ -1007,7 +1009,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   detname = det_wedge;
   G4Tubs* solidWedge = new G4Tubs(
     detname.c_str(),
-    wedge_Rmin, wedge_Rmax, wedge_Z/2., 0, 90.*degree
+    wedge_Rmin, wedge_Rmax, wedge_fullZ/2., 0, 90.*degree
   );
   G4LogicalVolume* logicWedge = new G4LogicalVolume(
     solidWedge,
@@ -1026,21 +1028,34 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     0,                       //copy number
     fCheckOverlaps           //overlaps checking
   );
-  // Construct the front face of the wedge
-  bool doModule = false;
-  size_t ix_module=0, ix_service=0;
+
+
+  /*****************************************/
+  /*****************************************/
+  /* Construct the front face of the wedge */
+  /*****************************************/
+  /*****************************************/
+  size_t ix_module, ix_service;
   G4double wedge_xpos;
   G4double wedge_ypos;
   G4double wedge_yposmin;
   G4double wedge_yposmax;
-  const G4double wedge_Roffset=0;
+  G4double wedge_Roffset;
+  std::vector<std::pair<G4double, G4double>> sensorhybrid_yminmax;
+  std::pair<G4double, G4double>::const_iterator moduleSensorHybridConnection_left;
+  std::pair<G4double, G4double>::const_iterator moduleSensorHybridConnection_right;
+
+  wedge_Roffset=0;
+  ix_module=ix_service=0;
 
   // Place service hybrids first
   wedge_xpos = onesensor_X + sep_X_module_servicehybrid + servicehybrid6_X/2.;
+  G4double first_sensorhybrid_x = wedge_xpos;
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
   while (true){ // Loop over columns
     wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + servicehybrid6_X/2., 2)));
     G4cout << "y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
+    sensorhybrid_yminmax.push_back(std::pair<G4double, G4double>(wedge_yposmin, wedge_yposmax));
 
     size_t i_object=0;
     wedge_ypos = wedge_yposmin;
@@ -1067,7 +1082,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
         // Position of service hybrid center relative to the wedge center
         G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid6_Z)/2.);
-        G4cout << "Placing service hybrid of sizes (" << servicehybrid6_X << "," << servicehybrid6_Y << "," << servicehybrid6_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid6_X << "," << servicehybrid6_Y << "," << servicehybrid6_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the 6-sensor service hybrid
         BuildSensorServiceHybrid(
           n_modules_per_side,
@@ -1085,7 +1100,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
         // Position of service hybrid center relative to the wedge center
         G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid12_Z)/2.);
-        G4cout << "Placing service hybrid of sizes (" << servicehybrid12_X << "," << servicehybrid12_Y << "," << servicehybrid12_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid12_X << "," << servicehybrid12_Y << "," << servicehybrid12_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the 12-sensor service hybrid
         BuildSensorServiceHybrid(
           n_modules_per_side,
@@ -1128,48 +1143,282 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
     if (wedge_xpos>=wedge_Rmax) break;
   }
+  G4double last_sensorhybrid_x = wedge_xpos;
 
-  fScoringVolume = logicWedge;
+  // Place one or two-sensor modules next
+  wedge_xpos = onesensor_X/2.;
+  moduleSensorHybridConnection_left = sensorhybrid_yminmax.cend();
+  moduleSensorHybridConnection_right = sensorhybrid_yminmax.cbegin();
+  wedge_yposmin = *moduleSensorHybridConnection_right;
+  while (true){ // Loop over columns
+    bool firstColumn = (wedge_xpos<first_sensorhybrid_x);
+    bool lastColumn = (wedge_xpos>last_sensorhybrid_x);
+
+    bool useOneSensorModule = (firstColumn || lastColumn);
+    G4double const& moduleWidthX = (useOneSensorModule ? onesensor_X : twosensor_X);
+    G4cout << "Placing a set of " << (useOneSensorModule ? "one-" : "two-") << "sensor modules with width " << moduleWidthX << G4endl;
+
+    wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + moduleWidthX/2., 2)));
+    G4cout << "Sensor y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
+
+    size_t i_object=0;
+    wedge_ypos = wedge_yposmin;
+    while (true){
+      G4Box* moduleBox = nullptr;
+      G4LogicalVolume* moduleLogical = nullptr;
+      G4PVPlacement* modulePV = nullptr;
+
+      if (!useOneSensorModule){ // Two-sensor modules
+        wedge_ypos += twosensor_Y/2.;
+        if (wedge_ypos + twosensor_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+        // Position of module center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+twosensor_Z)/2.);
+        G4cout << "\t- Placing two sensor modules of sizes (" << twosensor_X << "," << twosensor_Y << "," << twosensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the module
+        BuildTwoSensorModule(
+          logicWedge, relpos,
+          moduleBox, moduleLogical, modulePV
+        );
+
+        wedge_ypos += twosensor_Y/2.;
+      }
+      else{ // One-sensor modules
+        wedge_ypos += onesensor_Y/2.;
+        if (wedge_ypos + onesensor_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+        // Position of module center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+onesensor_Z)/2.);
+        G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the module
+        BuildOneSensorModule(
+          firstColumn,
+          logicWedge, relpos,
+          moduleBox, moduleLogical, modulePV
+        );
+
+        wedge_ypos += onesensor_Y/2.;
+      }
+      i_object++;
+
+      wedge_ypos += sep_Y_module_module;
+      if (wedge_ypos>=wedge_yposmax) break;
+    }
+    ix_module++;
+
+    wedge_xpos += (moduleWidthX/2. + sep_X_module_servicehybrid*2. + servicehybrid6_X);
+    while (
+      wedge_yposmin>0.
+      && (
+      wedge_xpos>=(wedge_Rmin + wedge_Roffset)
+        ||
+        (wedge_yposmin - sqrt(fabs(pow(wedge_Rmin + wedge_Roffset, 2) - pow(wedge_xpos, 2))))>=(onesensor_Y+sep_Y_module_module)
+        )
+      ){
+      if (wedge_yposmin<(onesensor_Y+sep_Y_module_module)) break;
+      //G4cout << "Subtracting deltaY = " << (onesensor_Y+sep_Y_module_module) << " from y pos = " << wedge_yposmin << G4endl;
+      wedge_yposmin -= (onesensor_Y+sep_Y_module_module);
+    }
+    G4double const& next_moduleWidthX = (wedge_xpos<last_sensorhybrid_x ? twosensor_X : onesensor_X);
+    wedge_xpos += next_moduleWidthX/2.;
+
+    if (wedge_xpos+next_moduleWidthX/2.>=wedge_Rmax) break;
+  }
 
 
+  /****************************************/
+  /****************************************/
+  /* Construct the back face of the wedge */
+  /****************************************/
+  /****************************************/
+  wedge_Roffset=0;
   ix_module=ix_service=0;
   wedge_xpos=0;
-  doModule=false;
+  sensorhybrid_yminmax.clear();
 
-  /*
-  G4Box* servicehybrid6Box;
-  G4LogicalVolume* servicehybrid6Logical;
-  G4PVPlacement* servicehybrid6PV;
-  BuildSensorServiceHybrid(
-    6,
-    logicEnvelope, G4ThreeVector(0, 0, 0),
-    servicehybrid6Box, servicehybrid6Logical, servicehybrid6PV
-  );
-  fScoringVolume = servicehybrid6Logical;
-  */
+  // Place service hybrids first
+  wedge_xpos = servicehybrid6_X/2.;
+  G4double first_sensorhybrid_x = wedge_xpos;
+  wedge_yposmin = (wedge_Rmin + wedge_Roffset);
+  while (true){ // Loop over columns
+    wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + servicehybrid6_X/2., 2)));
+    G4cout << "y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
+    sensorhybrid_yminmax.push_back(std::pair<G4double, G4double>(wedge_yposmin, wedge_yposmax));
 
-  /*
-  G4Box* servicehybrid3Box;
-  G4LogicalVolume* servicehybrid3Logical;
-  G4PVPlacement* servicehybrid3PV;
-  BuildSensorServiceHybrid(
-    3,
-    logicEnvelope, G4ThreeVector(0, 0, 0),
-    servicehybrid3Box, servicehybrid3Logical, servicehybrid3PV
-  );
-  fScoringVolume = servicehybrid3Logical;
-  */
+    size_t i_object=0;
+    wedge_ypos = wedge_yposmin;
+    while (true){
+      size_t n_modules_per_side;
+      if (
+        (ix_service<6 && i_object==0)
+        ||
+        (ix_service==3 && i_object<2)
+        ||
+        (ix_service==4 && i_object<3)
+        ||
+        ((wedge_yposmax-wedge_ypos)<servicehybrid12_Y && (wedge_yposmax-wedge_ypos)>=servicehybrid6_Y)
+        ) n_modules_per_side = 3;
+      else n_modules_per_side = 6;
 
-  /*
-  G4Box* moduleBox;
-  G4LogicalVolume* moduleLogical;
-  G4PVPlacement* modulePV;
-  BuildOneSensorModule(
-    logicEnvelope, G4ThreeVector(0,0,0),
-    moduleBox, moduleLogical, modulePV
-  );
-  fScoringVolume = moduleLogical;
-  */
+      G4Box* servicehybridBox = nullptr;
+      G4LogicalVolume* servicehybridLogical = nullptr;
+      G4PVPlacement* servicehybridPV = nullptr;
+
+      switch (n_modules_per_side){
+      case 3:
+      {
+        wedge_ypos += servicehybrid6_Y/2.;
+        if (wedge_ypos + servicehybrid6_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+                                                                    // Position of service hybrid center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid6_Z)/2.);
+        G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid6_X << "," << servicehybrid6_Y << "," << servicehybrid6_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the 6-sensor service hybrid
+        BuildSensorServiceHybrid(
+          n_modules_per_side,
+          logicWedge, relpos,
+          servicehybridBox, servicehybridLogical, servicehybridPV
+        );
+
+        wedge_ypos += servicehybrid6_Y/2.;
+        break;
+      }
+      case 6:
+      {
+        wedge_ypos += servicehybrid12_Y/2.;
+        if (wedge_ypos + servicehybrid12_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+                                                                     // Position of service hybrid center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid12_Z)/2.);
+        G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid12_X << "," << servicehybrid12_Y << "," << servicehybrid12_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the 12-sensor service hybrid
+        BuildSensorServiceHybrid(
+          n_modules_per_side,
+          logicWedge, relpos,
+          servicehybridBox, servicehybridLogical, servicehybridPV
+        );
+
+        wedge_ypos += servicehybrid12_Y/2.;
+        break;
+      }
+      default:
+      {
+        G4ExceptionDescription msg;
+        msg << "n_modules_per_side = " << n_modules_per_side << " is not supported!";
+        G4Exception("DetectorConstruction::DefineVolumes",
+                    "MyCode0003", FatalException, msg);
+        break;
+      }
+      }
+      i_object++;
+
+      wedge_ypos += sep_Y_servicehybrid_servicehybrid;
+      if (wedge_ypos>=wedge_yposmax) break;
+    }
+    ix_service++;
+
+    wedge_xpos += (twosensor_X + sep_X_module_servicehybrid*2. + servicehybrid6_X);
+    while (
+      wedge_yposmin>0.
+      && (
+      (wedge_xpos - servicehybrid6_X/2.)>=(wedge_Rmin + wedge_Roffset)
+        ||
+        (wedge_yposmin - sqrt(fabs(pow(wedge_Rmin + wedge_Roffset, 2) - pow(wedge_xpos - servicehybrid6_X/2., 2))))>=(onesensor_Y+sep_Y_module_module)
+        )
+      ){
+      if (wedge_yposmin<(onesensor_Y+sep_Y_module_module)) break;
+      G4cout << "Subtracting deltaY = " << (onesensor_Y+sep_Y_module_module) << " from y pos = " << wedge_yposmin << G4endl;
+      wedge_yposmin -= (onesensor_Y+sep_Y_module_module);
+    }
+
+    if (wedge_xpos>=wedge_Rmax) break;
+  }
+  G4double last_sensorhybrid_x = wedge_xpos;
+
+  // Place one or two-sensor modules next
+  wedge_xpos = onesensor_X/2.;
+  wedge_yposmin = (wedge_Rmin + wedge_Roffset);
+  moduleSensorHybridConnection_left = sensorhybrid_yminmax.cend();
+  moduleSensorHybridConnection_right = sensorhybrid_yminmax.cbegin();
+  while (true){ // Loop over columns
+    bool firstColumn = (wedge_xpos<first_sensorhybrid_x);
+    bool lastColumn = (wedge_xpos>last_sensorhybrid_x);
+    bool useOneSensorModule = (firstColumn || lastColumn);
+    G4double const& moduleWidthX = (useOneSensorModule ? onesensor_X : twosensor_X);
+    G4cout << "Placing a set of " << (useOneSensorModule ? "one-" : "two-") << "sensor modules with width " << moduleWidthX << G4endl;
+
+    wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + moduleWidthX/2., 2)));
+    G4cout << "Sensor y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
+
+    size_t i_object=0;
+    wedge_ypos = wedge_yposmin;
+    while (true){
+      G4Box* moduleBox = nullptr;
+      G4LogicalVolume* moduleLogical = nullptr;
+      G4PVPlacement* modulePV = nullptr;
+
+      if (!useOneSensorModule){ // Two-sensor modules
+        wedge_ypos += twosensor_Y/2.;
+        if (wedge_ypos + twosensor_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+                                                               // Position of module center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+twosensor_Z)/2.);
+        G4cout << "\t- Placing two sensor modules of sizes (" << twosensor_X << "," << twosensor_Y << "," << twosensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the module
+        BuildTwoSensorModule(
+          logicWedge, relpos,
+          moduleBox, moduleLogical, modulePV
+        );
+
+        wedge_ypos += twosensor_Y/2.;
+      }
+      else{ // One-sensor modules
+        wedge_ypos += onesensor_Y/2.;
+        if (wedge_ypos + onesensor_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+                                                               // Position of module center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+onesensor_Z)/2.);
+        G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the module
+        BuildOneSensorModule(
+          firstColumn,
+          logicWedge, relpos,
+          moduleBox, moduleLogical, modulePV
+        );
+
+        wedge_ypos += onesensor_Y/2.;
+      }
+      i_object++;
+
+      wedge_ypos += sep_Y_module_module;
+      if (wedge_ypos>=wedge_yposmax) break;
+    }
+    ix_module++;
+
+    wedge_xpos += (moduleWidthX/2. + sep_X_module_servicehybrid*2. + servicehybrid6_X);
+    while (
+      wedge_yposmin>0.
+      && (
+        wedge_xpos>=(wedge_Rmin + wedge_Roffset)
+        ||
+        (wedge_yposmin - sqrt(fabs(pow(wedge_Rmin + wedge_Roffset, 2) - pow(wedge_xpos, 2))))>=(onesensor_Y+sep_Y_module_module)
+        )
+      ){
+      if (wedge_yposmin<(onesensor_Y+sep_Y_module_module)) break;
+      //G4cout << "Subtracting deltaY = " << (onesensor_Y+sep_Y_module_module) << " from y pos = " << wedge_yposmin << G4endl;
+      wedge_yposmin -= (onesensor_Y+sep_Y_module_module);
+    }
+    G4double const& next_moduleWidthX = (wedge_xpos<last_sensorhybrid_x ? twosensor_X : onesensor_X);
+    wedge_xpos += next_moduleWidthX/2.;
+
+    if (wedge_xpos+next_moduleWidthX/2.>=wedge_Rmax) break;
+  }
+
+
+
+
+
+  fScoringVolume = logicWedge;
 
   //always return the physical World
   return physWorld;

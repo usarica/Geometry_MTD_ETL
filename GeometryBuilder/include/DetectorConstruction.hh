@@ -20,7 +20,7 @@ protected:
 
   void DefineMaterials();
   G4VPhysicalVolume* DefineVolumes();
-  void BuildOneSensorModule(G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
+  void BuildOneSensorModule(bool rightFlank, G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
   void BuildTwoSensorModule(G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
   void BuildSensorServiceHybrid(int const& nSensorsPerSide, G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV);
 
