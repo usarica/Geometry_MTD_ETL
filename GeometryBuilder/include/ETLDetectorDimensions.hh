@@ -1,10 +1,10 @@
-#ifndef MTDDETECTORDIMENSIONS_HH
-#define MTDDETECTORDIMENSIONS_HH
+#ifndef ETLDETECTORDIMENSIONS_HH
+#define ETLDETECTORDIMENSIONS_HH
 
 #include <string>
 
 
-namespace MTDDetectorDimensions{
+namespace ETLDetectorDimensions{
   void setDimensions();
   double getDimension(std::string const& subdet);
 }

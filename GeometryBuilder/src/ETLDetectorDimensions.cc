@@ -2,7 +2,7 @@
 #include <map>
 #include <algorithm>
 #include <utility>
-#include "MTDDetectorDimensions.hh"
+#include "ETLDetectorDimensions.hh"
 #include "G4UImanager.hh"
 #include "G4SystemOfUnits.hh"
 
@@ -13,12 +13,14 @@ typedef std::map<std::string, double>::iterator dim_map_it_t;
 typedef std::map<std::string, double>::const_iterator dim_map_cit_t;
 
 
-namespace MTDDetectorDimensions{
+namespace ETLDetectorDimensions{
   dim_map_t dimension_map;
 
+  void setETLOffsets();
   void setETLOneSensorModuleDimensions();
   void setETLTwoSensorModuleDimensions();
   void setETLSensorServiceHybridDimensions(int const& nSensorsPerSide); // nSensorsPerSide = 3 or 6
+  void setETLWedgeDimensions();
 
   void printDimensions();
 }
@@ -28,27 +30,29 @@ using namespace std;
 using namespace CLHEP;
 
 
-double MTDDetectorDimensions::getDimension(std::string const& subdet){
+double ETLDetectorDimensions::getDimension(std::string const& subdet){
   dim_map_cit_t it = dimension_map.find(subdet);
   if (it != dimension_map.cend()) return it->second;
   else{
-    G4cout << "MTDDetectorDimensions::getDimension: Could not find the dimension " << subdet << G4endl;
+    G4cout << "ETLDetectorDimensions::getDimension: Could not find the dimension " << subdet << G4endl;
     assert(0);
     return -1;
   }
 }
-void MTDDetectorDimensions::setDimensions(){
+void ETLDetectorDimensions::setDimensions(){
+  setETLOffsets();
   setETLOneSensorModuleDimensions();
   setETLTwoSensorModuleDimensions();
   setETLSensorServiceHybridDimensions(3);
   setETLSensorServiceHybridDimensions(6);
+  setETLWedgeDimensions();
 
   printDimensions();
 }
 
-void MTDDetectorDimensions::printDimensions(){ for (auto it:dimension_map) G4cout << "Dimension " << it.first << " = " << it.second << G4endl; }
+void ETLDetectorDimensions::printDimensions(){ for (auto it:dimension_map) G4cout << "Dimension " << it.first << " = " << it.second << G4endl; }
 
-void MTDDetectorDimensions::setETLOneSensorModuleDimensions(){
+void ETLDetectorDimensions::setETLOneSensorModuleDimensions(){
   string const detbase = "ETLOneSensorModule";
   string detname;
 
@@ -134,7 +138,7 @@ void MTDDetectorDimensions::setETLOneSensorModuleDimensions(){
   dimension_map[detname+"_Y"] = moduleSize_Y;
   dimension_map[detname+"_Z"] = moduleSize_Z;
 }
-void MTDDetectorDimensions::setETLTwoSensorModuleDimensions(){
+void ETLDetectorDimensions::setETLTwoSensorModuleDimensions(){
   string const detbase = "ETLTwoSensorModule";
   string detname;
 
@@ -220,12 +224,12 @@ void MTDDetectorDimensions::setETLTwoSensorModuleDimensions(){
   dimension_map[detname+"_Y"] = moduleSize_Y;
   dimension_map[detname+"_Z"] = moduleSize_Z;
 }
-void MTDDetectorDimensions::setETLSensorServiceHybridDimensions(int const& nSensorsPerSide){
+void ETLDetectorDimensions::setETLSensorServiceHybridDimensions(int const& nSensorsPerSide){
   string const detbase = "ETL" + std::to_string(2*nSensorsPerSide) + "SensorServiceHybrid";
   string detname;
 
   double servicehybridSize_X = 34*mm;
-  double servicehybridSize_Y = 43.1*((double) nSensorsPerSide)*mm;
+  double servicehybridSize_Y = 43.1*((double) nSensorsPerSide)*mm + ((double) (nSensorsPerSide-1))*getDimension("ETLOffset_Module_Module_dY");
 
   // Thermal pad
   detname = detbase + "_ThermalPad";
@@ -268,5 +272,40 @@ void MTDDetectorDimensions::setETLSensorServiceHybridDimensions(int const& nSens
   dimension_map[detname+"_X"] = servicehybridSize_X;
   dimension_map[detname+"_Y"] = servicehybridSize_Y;
   dimension_map[detname+"_Z"] = servicehybridSize_Z;
+}
+void ETLDetectorDimensions::setETLWedgeDimensions(){
+  string const detbase = "ETLWedge";
+  string detname;
+
+  // Wedge
+  detname = detbase;
+  const double wedge_rmin = 0.31*m;
+  const double wedge_rmax = 1.27*m;
+  const double wedge_z = 18.94*mm;
+  dimension_map[detname+"_Rmin"] = wedge_rmin;
+  dimension_map[detname+"_Rmax"] = wedge_rmax;
+  dimension_map[detname+"_Z"] = wedge_z;
+}
+void ETLDetectorDimensions::setETLOffsets(){
+  // This function only handles inter-component spacing
+  // Offsets within two-sensor modules are supposed to be inside setETLTwoSensorModuleDimensions.
+
+  string const detbase = "ETLOffset";
+  string detname;
+
+  // dX between any module and a service hybrid
+  detname = detbase + "_Module_SensorServiceHybrid_dX";
+  const double sep_X_module_servicehybrid = 0.*mm;
+  dimension_map[detname] = sep_X_module_servicehybrid;
+
+  // dY between any module
+  detname = detbase + "_Module_Module_dY";
+  const double sep_Y_module_module = 0.5*mm;
+  dimension_map[detname] = sep_Y_module_module;
+
+  // dY between any service hybrid
+  detname = detbase + "_SensorServiceHybrid_SensorServiceHybrid_dY";
+  const double sep_Y_servicehybrid_servicehybrid = sep_Y_module_module;
+  dimension_map[detname] = sep_Y_servicehybrid_servicehybrid;
 }
 

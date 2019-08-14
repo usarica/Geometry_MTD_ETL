@@ -1,5 +1,6 @@
+#include <cassert>
 #include "DetectorConstruction.hh"
-#include "MTDDetectorDimensions.hh"
+#include "ETLDetectorDimensions.hh"
 #include "G4RunManager.hh"
 #include "G4NistManager.hh"
 #include "G4Box.hh"
@@ -29,7 +30,7 @@ DetectorConstruction::~DetectorConstruction(){}
 G4VPhysicalVolume* DetectorConstruction::Construct(){
   G4cout << "Begin DetectorConstruction::Construct" << G4endl;
   DefineMaterials();
-  MTDDetectorDimensions::setDimensions(); // Build the dimensions
+  ETLDetectorDimensions::setDimensions(); // Build the dimensions
   G4VPhysicalVolume* res = DefineVolumes();
   G4cout << "End DetectorConstruction::Construct" << G4endl;
   return res;
@@ -126,7 +127,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos,
   G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV
 ){
-  using namespace MTDDetectorDimensions;
+  using namespace ETLDetectorDimensions;
 
   // See Fig. 3.56 in the MTD TDR for the module diagrams
   // Also Fig. 3.73 for the z positions.
@@ -398,7 +399,7 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos,
   G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV
 ){
-  using namespace MTDDetectorDimensions;
+  using namespace ETLDetectorDimensions;
 
   // See Fig. 3.56 in the MTD TDR for the module diagrams
   // Also Fig. 3.73 for the z positions.
@@ -714,7 +715,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos,
   G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV
 ){
-  using namespace MTDDetectorDimensions;
+  using namespace ETLDetectorDimensions;
 
   string const detbase = "ETL" + std::to_string(2*nSensorsPerSide) + "SensorServiceHybrid";
   string detname;
@@ -725,7 +726,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4double servicehybridSize_Y = getDimension(detname+"_Y");
   G4double servicehybridSize_Z = getDimension(detname+"_Z");
   G4Material* servicehybridMat = G4Material::GetMaterial("Vacuum");
-  G4VisAttributes* servicehybridVisAttr = new G4VisAttributes(G4Colour::Gray()); servicehybridVisAttr->SetVisibility(true);
+  G4VisAttributes* servicehybridVisAttr = new G4VisAttributes(G4Colour::Gray()); servicehybridVisAttr->SetVisibility(false);
 
   // Thermal pad
   detname = detbase + "_ThermalPad";
@@ -741,7 +742,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4double readoutboardSize_Y = getDimension(detname+"_Y");
   G4double readoutboardSize_Z = getDimension(detname+"_Z");
   G4Material* readoutboardMat = G4Material::GetMaterial("PCB");
-  G4VisAttributes* readoutboardVisAttr = new G4VisAttributes(G4Colour::Brown()); readoutboardVisAttr->SetVisibility(true);
+  G4VisAttributes* readoutboardVisAttr = new G4VisAttributes((nSensorsPerSide == 3 ? G4Colour::Red() : G4Colour::Brown())); readoutboardVisAttr->SetVisibility(true);
 
   // Connectors/flex/stiffener
   detname = detbase + "_Connectors";
@@ -749,7 +750,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4double connectorSize_Y = getDimension(detname+"_Y");
   G4double connectorSize_Z = getDimension(detname+"_Z");
   G4Material* connectorMat = G4Material::GetMaterial("ServiceConnector");
-  G4VisAttributes* connectorVisAttr = new G4VisAttributes(G4Colour::Brown()); connectorVisAttr->SetVisibility(true);
+  G4VisAttributes* connectorVisAttr = new G4VisAttributes((nSensorsPerSide == 3 ? G4Colour::Red() : G4Colour::Brown())); connectorVisAttr->SetVisibility(true);
 
   // Power board
   detname = detbase + "_PowerBoard";
@@ -757,7 +758,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4double powerboardSize_Y = getDimension(detname+"_Y");
   G4double powerboardSize_Z = getDimension(detname+"_Z");
   G4Material* powerboardMat = G4Material::GetMaterial("PCB");
-  G4VisAttributes* powerboardVisAttr = new G4VisAttributes(G4Colour::Brown()); powerboardVisAttr->SetVisibility(true);
+  G4VisAttributes* powerboardVisAttr = new G4VisAttributes((nSensorsPerSide == 3 ? G4Colour::Red() : G4Colour::Brown())); powerboardVisAttr->SetVisibility(true);
 
 
   // Build the module
@@ -865,6 +866,8 @@ void DetectorConstruction::BuildSensorServiceHybrid(
 
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
+  using namespace ETLDetectorDimensions;
+
   // Setup materials
   G4Material* world_mat = G4Material::GetMaterial("Vacuum");
   G4Material* envelope_mat = G4Material::GetMaterial("Vacuum");
@@ -889,15 +892,70 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   }
 
   // Size parameters
-  G4double wedge_rmin = 0.31*m;
-  G4double wedge_rmax = 1.27*m;
-  G4double wedge_z = 18.94*mm;
-  G4double world_sizeX = wedge_rmax*2.;
-  G4double world_sizeY = wedge_rmax*2.;
-  G4double world_sizeZ = wedge_z;
+  string const det_offset = "ETLOffset";
+  string const det_wedge = "ETLWedge";
+  string const det_onesensor = "ETLOneSensorModule";
+  string const det_twosensor = "ETLTwoSensorModule";
+  string const det_servicehybrid6 = "ETL6SensorServiceHybrid";
+  string const det_servicehybrid12 = "ETL12SensorServiceHybrid";
+
+  string detname;
+
+  detname = det_wedge;
+  G4double wedge_Rmin = getDimension(detname+"_Rmin");
+  G4double wedge_Rmax = getDimension(detname+"_Rmax");
+  G4double wedge_Z = getDimension(detname+"_Z");
+
+  detname = det_onesensor;
+  G4double onesensor_X = getDimension(detname+"_X");
+  G4double onesensor_Y = getDimension(detname+"_Y");
+  G4double onesensor_Z = getDimension(detname+"_Z");
+
+  detname = det_twosensor;
+  G4double twosensor_X = getDimension(detname+"_X");
+  G4double twosensor_Y = getDimension(detname+"_Y");
+  G4double twosensor_Z = getDimension(detname+"_Z");
+  if (onesensor_Y != twosensor_Y){
+    G4ExceptionDescription msg;
+    msg << "Inconsistent one- and two-sensor y-dimensions!";
+    G4Exception("DetectorConstruction::DefineVolumes",
+                "MyCode0002", FatalException, msg);
+  }
+
+  detname = det_servicehybrid6;
+  G4double servicehybrid6_X = getDimension(detname+"_X");
+  G4double servicehybrid6_Y = getDimension(detname+"_Y");
+  G4double servicehybrid6_Z = getDimension(detname+"_Z");
+
+  detname = det_servicehybrid12;
+  G4double servicehybrid12_X = getDimension(detname+"_X");
+  G4double servicehybrid12_Y = getDimension(detname+"_Y");
+  G4double servicehybrid12_Z = getDimension(detname+"_Z");
+  if (servicehybrid6_X != servicehybrid12_X){
+    G4ExceptionDescription msg;
+    msg << "Inconsistent service hybrid x-dimensions!";
+    G4Exception("DetectorConstruction::DefineVolumes",
+                "MyCode0002", FatalException, msg);
+  }
+
+  // External offsets
+  detname = det_offset + "_Module_SensorServiceHybrid_dX";
+  G4double sep_X_module_servicehybrid = getDimension(detname);
+  detname = det_offset + "_Module_Module_dY";
+  G4double sep_Y_module_module = getDimension(detname);
+  detname = det_offset + "_SensorServiceHybrid_SensorServiceHybrid_dY";
+  G4double sep_Y_servicehybrid_servicehybrid = getDimension(detname);
+
+  // World parameters
+  G4double world_sizeX = wedge_Rmax*2.;
+  G4double world_sizeY = wedge_Rmax*2.;
+  G4double world_sizeZ = wedge_Z;
+
+  // Generic envelope parameters
   G4double env_sizeX = world_sizeX;
   G4double env_sizeY = world_sizeY;
   G4double env_sizeZ = world_sizeZ;
+
 
   // World
   G4Box* solidWorld = new G4Box(
@@ -937,7 +995,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   new G4PVPlacement(
     0,                       //no rotation
     G4ThreeVector(),         //at (0,0,0)
-    logicEnvelope,                //its logical volume
+    logicEnvelope,           //its logical volume
     "Envelope",              //its name
     logicWorld,              //its mother  volume
     false,                   //no boolean operation
@@ -946,27 +1004,137 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   );
 
   // Wedge
+  detname = det_wedge;
   G4Tubs* solidWedge = new G4Tubs(
-    "MTDWedge",
-    wedge_rmin, wedge_rmax, wedge_z/2., 0, 90.*degree
+    detname.c_str(),
+    wedge_Rmin, wedge_Rmax, wedge_Z/2., 0, 90.*degree
   );
   G4LogicalVolume* logicWedge = new G4LogicalVolume(
     solidWedge,
     wedge_mat,
-    "MTDWedge"
+    detname.c_str()
   );
-  G4VisAttributes* wedgeVisAttr = new G4VisAttributes(G4Colour::Black()); wedgeVisAttr->SetVisibility(false);
+  G4VisAttributes* wedgeVisAttr = new G4VisAttributes(G4Colour::Gray()); wedgeVisAttr->SetVisibility(true);
   logicWedge->SetVisAttributes(wedgeVisAttr);
   new G4PVPlacement(
     0,                       //no rotation
     G4ThreeVector(),         //at (0,0,0)
     logicWedge,                //its logical volume
-    "MTDWedge",              //its name
+    detname.c_str(),              //its name
     logicEnvelope,              //its mother  volume
     false,                   //no boolean operation
     0,                       //copy number
     fCheckOverlaps           //overlaps checking
   );
+  // Construct the front face of the wedge
+  bool doModule = false;
+  size_t ix_module=0, ix_service=0;
+  G4double wedge_xpos;
+  G4double wedge_ypos;
+  G4double wedge_yposmin;
+  G4double wedge_yposmax;
+  const G4double wedge_Roffset=0;
+
+  // Place service hybrids first
+  wedge_xpos = onesensor_X + sep_X_module_servicehybrid + servicehybrid6_X/2.;
+  wedge_yposmin = (wedge_Rmin + wedge_Roffset);
+  while (true){ // Loop over columns
+    wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + servicehybrid6_X/2., 2)));
+    G4cout << "y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
+
+    size_t i_object=0;
+    wedge_ypos = wedge_yposmin;
+    while (true){
+      size_t n_modules_per_side;
+      if (
+        (ix_service<5 && i_object==0)
+        ||
+        (ix_service==3 && i_object<3)
+        ||
+        ((wedge_yposmax-wedge_ypos)<servicehybrid12_Y && (wedge_yposmax-wedge_ypos)>=servicehybrid6_Y)
+        ) n_modules_per_side = 3;
+      else n_modules_per_side = 6;
+
+      G4Box* servicehybridBox = nullptr;
+      G4LogicalVolume* servicehybridLogical = nullptr;
+      G4PVPlacement* servicehybridPV = nullptr;
+
+      switch (n_modules_per_side){
+      case 3:
+      {
+        wedge_ypos += servicehybrid6_Y/2.;
+        if (wedge_ypos + servicehybrid6_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+        // Position of service hybrid center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid6_Z)/2.);
+        G4cout << "Placing service hybrid of sizes (" << servicehybrid6_X << "," << servicehybrid6_Y << "," << servicehybrid6_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the 6-sensor service hybrid
+        BuildSensorServiceHybrid(
+          n_modules_per_side,
+          logicWedge, relpos,
+          servicehybridBox, servicehybridLogical, servicehybridPV
+        );
+
+        wedge_ypos += servicehybrid6_Y/2.;
+        break;
+      }
+      case 6:
+      {
+        wedge_ypos += servicehybrid12_Y/2.;
+        if (wedge_ypos + servicehybrid12_Y/2.>=wedge_yposmax) break; // Breaks from the switch, not the while loop!
+
+        // Position of service hybrid center relative to the wedge center
+        G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid12_Z)/2.);
+        G4cout << "Placing service hybrid of sizes (" << servicehybrid12_X << "," << servicehybrid12_Y << "," << servicehybrid12_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
+        // Construct the 12-sensor service hybrid
+        BuildSensorServiceHybrid(
+          n_modules_per_side,
+          logicWedge, relpos,
+          servicehybridBox, servicehybridLogical, servicehybridPV
+        );
+
+        wedge_ypos += servicehybrid12_Y/2.;
+        break;
+      }
+      default:
+      {
+        G4ExceptionDescription msg;
+        msg << "n_modules_per_side = " << n_modules_per_side << " is not supported!";
+        G4Exception("DetectorConstruction::DefineVolumes",
+                    "MyCode0003", FatalException, msg);
+        break;
+      }
+      }
+      i_object++;
+
+      wedge_ypos += sep_Y_servicehybrid_servicehybrid;
+      if (wedge_ypos>=wedge_yposmax) break;
+    }
+    ix_service++;
+
+    wedge_xpos += (twosensor_X + sep_X_module_servicehybrid*2. + servicehybrid6_X);
+    while (
+      wedge_yposmin>0.
+      && (
+        (wedge_xpos - servicehybrid6_X/2.)>=(wedge_Rmin + wedge_Roffset)
+        ||
+        (wedge_yposmin - sqrt(fabs(pow(wedge_Rmin + wedge_Roffset, 2) - pow(wedge_xpos - servicehybrid6_X/2., 2))))>=(onesensor_Y+sep_Y_module_module)
+        )
+      ){
+      if (wedge_yposmin<(onesensor_Y+sep_Y_module_module)) break;
+      G4cout << "Subtracting deltaY = " << (onesensor_Y+sep_Y_module_module) << " from y pos = " << wedge_yposmin << G4endl;
+      wedge_yposmin -= (onesensor_Y+sep_Y_module_module);
+    }
+
+    if (wedge_xpos>=wedge_Rmax) break;
+  }
+
+  fScoringVolume = logicWedge;
+
+
+  ix_module=ix_service=0;
+  wedge_xpos=0;
+  doModule=false;
 
   /*
   G4Box* servicehybrid6Box;
@@ -980,6 +1148,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   fScoringVolume = servicehybrid6Logical;
   */
 
+  /*
   G4Box* servicehybrid3Box;
   G4LogicalVolume* servicehybrid3Logical;
   G4PVPlacement* servicehybrid3PV;
@@ -989,6 +1158,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     servicehybrid3Box, servicehybrid3Logical, servicehybrid3PV
   );
   fScoringVolume = servicehybrid3Logical;
+  */
 
   /*
   G4Box* moduleBox;
