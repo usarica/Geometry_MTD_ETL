@@ -5,6 +5,7 @@
 #include "globals.hh"
 #include "G4Box.hh"
 #include "G4ThreeVector.hh"
+#include "G4RotationMatrix.hh"
 
 
 class G4VPhysicalVolume;
@@ -20,9 +21,9 @@ protected:
 
   void DefineMaterials();
   G4VPhysicalVolume* DefineVolumes();
-  void BuildOneSensorModule(bool rightFlank, G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
-  void BuildTwoSensorModule(G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
-  void BuildSensorServiceHybrid(int const& nSensorsPerSide, G4LogicalVolume* motherLogical, G4ThreeVector const& relativePos, G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV);
+  void BuildOneSensorModule(bool rightFlank, G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
+  void BuildTwoSensorModule(G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
+  void BuildSensorServiceHybrid(int const& nSensorsPerSide, G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos, G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV);
 
 public:
   DetectorConstruction();
