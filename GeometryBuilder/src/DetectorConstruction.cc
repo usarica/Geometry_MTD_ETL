@@ -1,4 +1,5 @@
 #include <cassert>
+#include <unordered_map>
 #include "DetectorConstruction.hh"
 #include "ETLDetectorDimensions.hh"
 #include "G4RunManager.hh"
@@ -16,11 +17,35 @@
 #include "G4PVPlacement.hh"
 #include "G4PVReplica.hh"
 #include "G4SystemOfUnits.hh"
-#include "G4VisAttributes.hh"
+
+
+namespace DetectorConstructionHelpers{
+  BasicDetectorAttributes::BasicDetectorAttributes() :
+    solid(nullptr),
+    logical(nullptr),
+    material(nullptr),
+    visualization(nullptr)
+  {}
+  BasicDetectorAttributes::BasicDetectorAttributes(BasicDetectorAttributes const& other) :
+    solid(other.solid),
+    logical(other.logical),
+    material(other.material),
+    visualization(other.visualization)
+  {}
+  BasicDetectorAttributes::BasicDetectorAttributes(G4VSolid* solid_, G4LogicalVolume* logical_, G4Material* material_, G4VisAttributes* visualization_) :
+    solid(solid_),
+    logical(logical_),
+    material(material_),
+    visualization(visualization_)
+  {}
+
+  std::unordered_map<std::string, BasicDetectorAttributes> detector_components;
+}
 
 
 using namespace CLHEP;
 using namespace std;
+using namespace DetectorConstructionHelpers;
 
 
 DetectorConstruction::DetectorConstruction() :
@@ -136,9 +161,8 @@ void DetectorConstruction::DefineMaterials(){
 
 
 void DetectorConstruction::BuildOneSensorModule(
-  bool rightFlank,
-  G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos,
-  G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV
+  G4LogicalVolume* motherLogical,
+  G4RotationMatrix* rotation, G4ThreeVector const& relativePos
 ){
   using namespace ETLDetectorDimensions;
 
@@ -146,7 +170,20 @@ void DetectorConstruction::BuildOneSensorModule(
   // Also Fig. 3.73 for the z positions.
   // Note that the base aluminum plate on which the service is loaded, or the epoxy underneath are not included since they are only on one side.
   string const detbase = "ETLOneSensorModule";
-  string detname;
+  string detname = detbase;
+
+  // Search for the module
+  auto det_component = detector_components.find(detname);
+  if (det_component!=detector_components.end()){
+    new G4PVPlacement(
+      rotation, relativePos,
+      det_component->second.logical,
+      detname.c_str(),
+      motherLogical,
+      false, 0, fCheckOverlaps
+    );
+    return;
+  }
 
   // AlN base plate
   detname = detbase + "_BasePlate";
@@ -229,23 +266,24 @@ void DetectorConstruction::BuildOneSensorModule(
 
   // Build the module
   detname = detbase;
-  moduleBox = new G4Box(
+  G4Box* moduleBox = new G4Box(
     detname.c_str(),
     moduleSize_X/2., moduleSize_Y/2., moduleSize_Z/2.
   );
-  moduleLogical = new G4LogicalVolume(
+  G4LogicalVolume* moduleLogical = new G4LogicalVolume(
     moduleBox, 
     moduleMat,
     detname.c_str()
   );
   moduleLogical->SetVisAttributes(moduleVisAttr);
-  modulePV = new G4PVPlacement(
+  new G4PVPlacement(
     rotation, relativePos,
     moduleLogical,
     detname.c_str(),
     motherLogical,
     false, 0, fCheckOverlaps
   );
+  detector_components[detname] = BasicDetectorAttributes(moduleBox, moduleLogical, moduleMat, moduleVisAttr);
 
   // Build the base film at the very bottom of the module
   detname = detbase + "_BaseFilm";
@@ -300,7 +338,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   lairdfilmLogical->SetVisAttributes(lairdfilmVisAttr);
   new G4PVPlacement(
-    0, G4ThreeVector(((lairdfilmSize_X-baseplateSize_X)/2. + lairdfilmOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((lairdfilmSize_X-baseplateSize_X)/2. + lairdfilmOffset_X), 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
     lairdfilmLogical,
     detname.c_str(),
     moduleLogical,
@@ -320,14 +358,14 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   etrocLogical->SetVisAttributes(etrocVisAttr);
   new G4PVPlacement(
-    0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X)*(rightFlank ? 1. : -1.), -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X), -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
   new G4PVPlacement(
-    0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X)*(rightFlank ? 1. : -1.), +(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X), +(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -348,14 +386,14 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   bumpsLogical->SetVisAttributes(bumpsVisAttr);
   new G4PVPlacement(
-    0, G4ThreeVector(((bumpsSize_X-baseplateSize_X)/2. + bumpsOffset_X)*(rightFlank ? 1. : -1.), -(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((bumpsSize_X-baseplateSize_X)/2. + bumpsOffset_X), -(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
     bumpsLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
   new G4PVPlacement(
-    0, G4ThreeVector(((bumpsSize_X-baseplateSize_X)/2. + bumpsOffset_X)*(rightFlank ? 1. : -1.), +(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((bumpsSize_X-baseplateSize_X)/2. + bumpsOffset_X), +(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
     bumpsLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -375,7 +413,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   lgadLogical->SetVisAttributes(lgadVisAttr);
   new G4PVPlacement(
-    0, G4ThreeVector(((lgadSize_X-baseplateSize_X)/2. + lgadOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((lgadSize_X-baseplateSize_X)/2. + lgadOffset_X), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
     detname.c_str(),
     moduleLogical,
@@ -395,7 +433,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   epoxyLogical->SetVisAttributes(epoxyVisAttr);
   new G4PVPlacement(
-    0, G4ThreeVector(((epoxySize_X-baseplateSize_X)/2. + epoxyOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((epoxySize_X-baseplateSize_X)/2. + epoxyOffset_X), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
     epoxyLogical,
     detname.c_str(),
     moduleLogical,
@@ -415,7 +453,7 @@ void DetectorConstruction::BuildOneSensorModule(
   );
   coverplateLogical->SetVisAttributes(coverplateVisAttr);
   new G4PVPlacement(
-    0, G4ThreeVector(((coverplateSize_X-baseplateSize_X)/2. + coverplateOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
+    0, G4ThreeVector(((coverplateSize_X-baseplateSize_X)/2. + coverplateOffset_X), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
     coverplateLogical,
     detname.c_str(),
     moduleLogical,
@@ -424,8 +462,8 @@ void DetectorConstruction::BuildOneSensorModule(
 }
 
 void DetectorConstruction::BuildTwoSensorModule(
-  G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos,
-  G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV
+  G4LogicalVolume* motherLogical,
+  G4RotationMatrix* rotation, G4ThreeVector const& relativePos
 ){
   using namespace ETLDetectorDimensions;
 
@@ -433,7 +471,20 @@ void DetectorConstruction::BuildTwoSensorModule(
   // Also Fig. 3.73 for the z positions.
   // Note that the base aluminum plate on which the service is loaded, or the epoxy underneath are not included since they are only on one side.
   string const detbase = "ETLTwoSensorModule";
-  string detname;
+  string detname = detbase;
+
+  // Search for the module
+  auto det_component = detector_components.find(detname);
+  if (det_component!=detector_components.end()){
+    new G4PVPlacement(
+      rotation, relativePos,
+      det_component->second.logical,
+      detname.c_str(),
+      motherLogical,
+      false, 0, fCheckOverlaps
+    );
+    return;
+  }
 
   // AlN base plate
   detname = detbase + "_BasePlate";
@@ -515,23 +566,25 @@ void DetectorConstruction::BuildTwoSensorModule(
 
   // Build the module
   detname = detbase;
-  moduleBox = new G4Box(
+  G4Box* moduleBox = new G4Box(
     detname.c_str(),
     moduleSize_X/2., moduleSize_Y/2., moduleSize_Z/2.
   );
-  moduleLogical = new G4LogicalVolume(
+  G4LogicalVolume* moduleLogical = new G4LogicalVolume(
     moduleBox,
     moduleMat,
     detname.c_str()
   );
   moduleLogical->SetVisAttributes(moduleVisAttr);
-  modulePV = new G4PVPlacement(
+  new G4PVPlacement(
     rotation, relativePos,
     moduleLogical,
     detname.c_str(),
     motherLogical,
     false, 0, fCheckOverlaps
   );
+  detector_components[detname] = BasicDetectorAttributes(moduleBox, moduleLogical, moduleMat, moduleVisAttr);
+
 
   // Build the base film at the very bottom of the module
   detname = detbase + "_BaseFilm";
@@ -761,13 +814,26 @@ void DetectorConstruction::BuildTwoSensorModule(
 
 void DetectorConstruction::BuildSensorServiceHybrid(
   int const& nSensorsPerSide, // 6 or 3
-  G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos,
-  G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV
+  G4LogicalVolume* motherLogical,
+  G4RotationMatrix* rotation, G4ThreeVector const& relativePos
 ){
   using namespace ETLDetectorDimensions;
 
   string const detbase = "ETL" + std::to_string(2*nSensorsPerSide) + "SensorServiceHybrid";
-  string detname;
+  string detname = detbase;
+
+  // Search for the module
+  auto det_component = detector_components.find(detname);
+  if (det_component!=detector_components.end()){
+    new G4PVPlacement(
+      rotation, relativePos,
+      det_component->second.logical,
+      detname.c_str(),
+      motherLogical,
+      false, 0, fCheckOverlaps
+    );
+    return;
+  }
 
   // See Figs. 3.61 and 3.62 in the MTD TDR for the diagrams
   detname = detbase;
@@ -810,25 +876,26 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4VisAttributes* powerboardVisAttr = new G4VisAttributes((nSensorsPerSide == 3 ? G4Colour::Red() : G4Colour::Brown())); powerboardVisAttr->SetVisibility(true);
 
 
-  // Build the module
+  // Build the service hybrid
   detname = detbase;
-  serviceBox = new G4Box(
+  G4Box* serviceBox = new G4Box(
     detname.c_str(),
     servicehybridSize_X/2., servicehybridSize_Y/2., servicehybridSize_Z/2.
   );
-  serviceLogical = new G4LogicalVolume(
+  G4LogicalVolume* serviceLogical = new G4LogicalVolume(
     serviceBox,
     servicehybridMat,
     detname.c_str()
   );
   serviceLogical->SetVisAttributes(servicehybridVisAttr);
-  servicePV = new G4PVPlacement(
+  new G4PVPlacement(
     rotation, relativePos,
     serviceLogical,
     detname.c_str(),
     motherLogical,
     false, 0, fCheckOverlaps
   );
+  detector_components[detname] = BasicDetectorAttributes(serviceBox, serviceLogical, servicehybridMat, servicehybridVisAttr);
 
 
   // Thermal pad
@@ -963,13 +1030,13 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
   G4double wedge_Z = getDimension(detname+"_Z");
   G4double wedge_fullZ = getDimension(detname+"_FullZ");
   constexpr bool addMIC6Al = true;
-  constexpr bool addEpoxy = false;
-  constexpr bool addCoolingAl = false;
+  constexpr bool addEpoxy = true;
+  constexpr bool addCoolingAl = true;
 
   detname = detbase + "_CoolingPipe";
   G4double coolingpipe_Rmin = getDimension(detname+"_Rmin");
   G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
-  constexpr bool drillCoolingPipeCavities = true;
+  constexpr bool drillCoolingPipeCavities = false;
   constexpr bool addCoolingPipes = false && drillCoolingPipeCavities;
 
   // MIC6 Al
@@ -1182,6 +1249,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Size parameters
   string const det_offset = "ETLOffset";
   string const det_wedge = "ETLWedge";
+  string const det_wedge_attachment = "ETLWedge_Attachment";
   string const det_onesensor = "ETLOneSensorModule";
   string const det_twosensor = "ETLTwoSensorModule";
   string const det_servicehybrid6 = "ETL6SensorServiceHybrid";
@@ -1227,6 +1295,16 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double wedge_Z = getDimension(detname+"_Z");
   G4double wedge_fullZ = getDimension(detname+"_FullZ");
 
+  // Thin aluminum attachment on the wedge front faces
+  detname = det_wedge_attachment;
+  G4double wedge_attachment_X = getDimension(detname+"_X");
+  G4double wedge_attachment_Y = getDimension(detname+"_Y");
+  G4double wedge_attachment_Z = getDimension(detname+"_Z");
+  G4double wedge_attachment_Offset_X = getDimension(detname+"_Offset_X");
+  G4double wedge_attachment_Offset_Y = getDimension(detname+"_Offset_Y");
+  G4double wedge_frontface_sensor_Offset_X = wedge_attachment_Y/2. - wedge_attachment_Offset_Y;
+  G4double wedge_frontface_sensor_Offset_Y = wedge_attachment_Y/2. + wedge_attachment_Offset_Y;
+
   // External offsets
   detname = det_offset + "_Module_SensorServiceHybrid_dX";
   G4double sep_X_module_servicehybrid = getDimension(detname);
@@ -1251,11 +1329,11 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /* BEGIN GEOMETRY */
   /******************/
   /******************/
-  constexpr bool putServiceHybrids = false;
-  constexpr bool putModules = false;
-  constexpr bool putWedgeComponents = true;
+  constexpr bool putServiceHybrids = true;
+  constexpr bool putModules = true;
+  constexpr bool putWedgeComponents = false;
   constexpr bool doWedgeFrontFace = true;
-  constexpr bool doWedgeBackFace = true;
+  constexpr bool doWedgeBackFace = false;
 
   // World
   G4Box* solidWorld = new G4Box(
@@ -1336,6 +1414,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double wedge_yposmax;
   G4double wedge_Roffset;
   G4RotationMatrix* reflectionTransformation;
+  G4RotationMatrix* reflectionAndSideSwapTransformation = new G4RotationMatrix; reflectionAndSideSwapTransformation->rotateZ(M_PI*rad);
   std::vector<std::pair<G4double, G4double>> coolingpipes_xpos_ymin;
   std::vector<std::pair<G4double, G4double>> sensorhybrid_yminmax;
   std::vector<G4double> sensorhybrid_xpos;
@@ -1353,8 +1432,15 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   reflectionTransformation=nullptr;
 
   // Place service hybrids first
-  wedge_xpos = onesensor_X + sep_X_module_servicehybrid + servicehybrid6_X/2.;
+  wedge_xpos = wedge_frontface_sensor_Offset_X + onesensor_X + sep_X_module_servicehybrid + servicehybrid6_X/2.;
+  // Calculate yposmin:
+  // Depends on how many modules will fit as well
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
+  {
+    G4double nmodules_d = (wedge_yposmin - wedge_frontface_sensor_Offset_Y) / onesensor_Y;
+    G4int nmodules_i = std::ceil(nmodules_d);
+    wedge_yposmin = (G4double) nmodules_i * onesensor_Y + wedge_frontface_sensor_Offset_Y;
+  }
   while (doWedgeFrontFace){ // Loop over columns
     sensorhybrid_xpos.push_back(wedge_xpos);
     coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
@@ -1377,9 +1463,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         ) n_modules_per_side = 3;
       else n_modules_per_side = 6;
 
-      G4Box* servicehybridBox = nullptr;
-      G4LogicalVolume* servicehybridLogical = nullptr;
-      G4PVPlacement* servicehybridPV = nullptr;
       bool doPlaceSensorHybrid=true;
 
       switch (n_modules_per_side){
@@ -1394,8 +1477,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         // Construct the 6-sensor service hybrid
         if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
-          logicWedge, reflectionTransformation, relpos,
-          servicehybridBox, servicehybridLogical, servicehybridPV
+          logicWedge, reflectionTransformation, relpos
         );
 
         wedge_ypos += servicehybrid6_Y/2.;
@@ -1413,8 +1495,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         // Construct the 12-sensor service hybrid
         if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
-          logicWedge, reflectionTransformation, relpos,
-          servicehybridBox, servicehybridLogical, servicehybridPV
+          logicWedge, reflectionTransformation, relpos
         );
 
         wedge_ypos += servicehybrid12_Y/2.;
@@ -1457,7 +1538,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   }
 
   // Place one or two-sensor modules next
-  wedge_xpos = onesensor_X/2.;
+  wedge_xpos = wedge_frontface_sensor_Offset_X + onesensor_X/2.;
   moduleSensorHybridConnection_yminmax_cend = sensorhybrid_yminmax.cend();
   moduleSensorHybridConnection_yminmax_left = moduleSensorHybridConnection_yminmax_cend;
   moduleSensorHybridConnection_yminmax_right = sensorhybrid_yminmax.cbegin();
@@ -1496,10 +1577,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     size_t i_object=0;
     wedge_ypos = wedge_yposmin;
     while (true){
-      G4Box* moduleBox = nullptr;
-      G4LogicalVolume* moduleLogical = nullptr;
-      G4PVPlacement* modulePV = nullptr;
-
       G4double wedge_xpos_offset = 0; // This is an offset to calculate if placing left- or right-flanked one-sensor modules in an otherwise two-sensor module column
       bool placeLeftFlankedOneSensorModule = false;
       bool placeRightFlankedOneSensorModule = false;
@@ -1564,9 +1641,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
         if (putModules) BuildOneSensorModule(
-          firstColumn_OneSensorModule || placeRightFlankedOneSensorModule,
-          logicWedge, reflectionTransformation, relpos,
-          moduleBox, moduleLogical, modulePV
+          logicWedge, (firstColumn_OneSensorModule || placeRightFlankedOneSensorModule ? reflectionTransformation : reflectionAndSideSwapTransformation), relpos
         );
 
         wedge_ypos += onesensor_Y/2.;
@@ -1581,8 +1656,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4cout << "\t- Placing two sensor modules of sizes (" << twosensor_X << "," << twosensor_Y << "," << twosensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
         if (putModules) BuildTwoSensorModule(
-          logicWedge, reflectionTransformation, relpos,
-          moduleBox, moduleLogical, modulePV
+          logicWedge, reflectionTransformation, relpos
         );
 
         wedge_ypos += twosensor_Y/2.;
@@ -1618,6 +1692,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   ix_module=ix_service=0;
   wedge_xpos=0;
   reflectionTransformation = new G4RotationMatrix; reflectionTransformation->rotateY(M_PI*rad);
+  reflectionAndSideSwapTransformation = new G4RotationMatrix; reflectionAndSideSwapTransformation->rotateZ(M_PI*rad); reflectionAndSideSwapTransformation->rotateY(M_PI*rad);
   sensorhybrid_yminmax.clear();
   sensorhybrid_xpos.clear();
 
@@ -1647,9 +1722,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         ) n_modules_per_side = 3;
       else n_modules_per_side = 6;
 
-      G4Box* servicehybridBox = nullptr;
-      G4LogicalVolume* servicehybridLogical = nullptr;
-      G4PVPlacement* servicehybridPV = nullptr;
       bool doPlaceSensorHybrid=true;
 
       switch (n_modules_per_side){
@@ -1664,8 +1736,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         // Construct the 6-sensor service hybrid
         if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
-          logicWedge, reflectionTransformation, relpos,
-          servicehybridBox, servicehybridLogical, servicehybridPV
+          logicWedge, reflectionTransformation, relpos
         );
 
         wedge_ypos += servicehybrid6_Y/2.;
@@ -1683,8 +1754,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         // Construct the 12-sensor service hybrid
         if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
-          logicWedge, reflectionTransformation, relpos,
-          servicehybridBox, servicehybridLogical, servicehybridPV
+          logicWedge, reflectionTransformation, relpos
         );
 
         wedge_ypos += servicehybrid12_Y/2.;
@@ -1761,10 +1831,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     size_t i_object=0;
     wedge_ypos = wedge_yposmin;
     while (true){
-      G4Box* moduleBox = nullptr;
-      G4LogicalVolume* moduleLogical = nullptr;
-      G4PVPlacement* modulePV = nullptr;
-
       G4double wedge_xpos_offset = 0; // This is an offset to calculate if placing left- or right-flanked one-sensor modules in an otherwise two-sensor module column
       bool placeLeftFlankedOneSensorModule = false;
       bool placeRightFlankedOneSensorModule = false;
@@ -1829,9 +1895,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
         if (putModules) BuildOneSensorModule(
-          lastColumn_OneSensorModule || placeLeftFlankedOneSensorModule,
-          logicWedge, reflectionTransformation, relpos,
-          moduleBox, moduleLogical, modulePV
+          logicWedge, (lastColumn_OneSensorModule || placeLeftFlankedOneSensorModule ? reflectionTransformation : reflectionAndSideSwapTransformation), relpos
         );
 
         wedge_ypos += onesensor_Y/2.;
@@ -1846,8 +1910,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4cout << "\t- Placing two sensor modules of sizes (" << twosensor_X << "," << twosensor_Y << "," << twosensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
         if (putModules) BuildTwoSensorModule(
-          logicWedge, reflectionTransformation, relpos,
-          moduleBox, moduleLogical, modulePV
+          logicWedge, reflectionTransformation, relpos
         );
 
         wedge_ypos += twosensor_Y/2.;

@@ -197,7 +197,7 @@ void ETLDetectorDimensions::setETLTwoSensorModuleDimensions(){
   double etrocSize_X = 22.3*mm;
   double etrocSize_Y = 20.8*mm;
   double etrocSize_Z = 0.25*mm;
-  double etrocSep_X = 0.2*mm;
+  double etrocSep_X = 0.3*mm;
   double etrocSep_Y = 0.1*mm;
   dimension_map[detname+"_X"] = etrocSize_X;
   dimension_map[detname+"_Y"] = etrocSize_Y;
@@ -227,7 +227,7 @@ void ETLDetectorDimensions::setETLTwoSensorModuleDimensions(){
   double lgadSize_X = 21.2*mm;
   double lgadSize_Y = 42.0*mm;
   double lgadSize_Z = 0.3*mm;
-  double lgadSep_X = 0.05*mm;
+  double lgadSep_X = 0.25*mm;
   dimension_map[detname+"_X"] = lgadSize_X;
   dimension_map[detname+"_Y"] = lgadSize_Y;
   dimension_map[detname+"_Z"] = lgadSize_Z;
@@ -290,7 +290,7 @@ void ETLDetectorDimensions::setETLSensorServiceHybridDimensions(int const& nSens
   string detname;
 
   const double servicehybridSize_X = 34*mm;
-  const double servicehybridSize_Y = 43.1*((double) nSensorsPerSide)*mm + ((double) (nSensorsPerSide-1))*getDimension("ETLOffset_Module_Module_dY");
+  const double servicehybridSize_Y = getDimension("ETLTwoSensorModule_BasePlate_Y")*((double) nSensorsPerSide) + ((double) (nSensorsPerSide-1))*getDimension("ETLOffset_Module_Module_dY");
 
   // Thermal pad
   detname = detbase + "_ThermalPad";
@@ -360,6 +360,18 @@ void ETLDetectorDimensions::setETLWedgeDimensions(){
   const double coolingpipe_rmax = 4.2*mm/2.; // FIXME
   dimension_map[detname+"_Rmin"] = coolingpipe_rmin;
   dimension_map[detname+"_Rmax"] = coolingpipe_rmax;
+
+  detname = detbase + "_Attachment";
+  const double attachment_x = (wedge_rmax - wedge_rmin);
+  const double attachment_y = 5*cm;
+  const double attachment_z = 1*mm;
+  const double attachment_offset_x = wedge_rmin;
+  const double attachment_offset_y = attachment_y*(0.5-0.5);
+  dimension_map[detname+"_X"] = attachment_x;
+  dimension_map[detname+"_Y"] = attachment_y;
+  dimension_map[detname+"_Z"] = attachment_z;
+  dimension_map[detname+"_Offset_X"] = attachment_offset_x;
+  dimension_map[detname+"_Offset_Y"] = attachment_offset_y;
 
 }
 void ETLDetectorDimensions::setETLOffsets(){
