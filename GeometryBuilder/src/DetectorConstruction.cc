@@ -9,8 +9,12 @@
 #include "G4Sphere.hh"
 #include "G4Trd.hh"
 #include "G4Tubs.hh"
+#include "G4UnionSolid.hh"
+#include "G4IntersectionSolid.hh"
+#include "G4SubtractionSolid.hh"
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
+#include "G4PVReplica.hh"
 #include "G4SystemOfUnits.hh"
 #include "G4VisAttributes.hh"
 
@@ -39,13 +43,19 @@ void DetectorConstruction::DefineMaterials(){
   G4cout << "Begin DetectorConstruction::DefineMaterials" << G4endl;
 
   G4NistManager* nist = G4NistManager::Instance();
+  nist->ListMaterials("all");
   G4double a;
   G4double z;
   G4double density;
 
   G4Material* Air = nist->FindOrBuildMaterial("G4_AIR");
-  G4Material* CO2 = nist->FindOrBuildMaterial("G4_CARBON_DIOXIDE");
+  G4Material* nist_CO2 = nist->FindOrBuildMaterial("G4_CARBON_DIOXIDE");
+  G4Material* nist_Al = nist->FindOrBuildMaterial("G4_Al");
+  G4Material* nist_Sn = nist->FindOrBuildMaterial("G4_Sn");
+  G4Material* nist_Ag = nist->FindOrBuildMaterial("G4_Ag");
+  G4Material* nist_Cu = nist->FindOrBuildMaterial("G4_Cu");
   //nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
+  G4Material* nist_Steel = nist->FindOrBuildMaterial("G4_STAINLESS-STEEL");
 
   //G4double env_temp = (273.16+15.00)*kelvin; // NTP_Temperature=293.15*kelvin
   //G4double env_pressure = STP_Pressure; // in units of pascal
@@ -62,6 +72,8 @@ void DetectorConstruction::DefineMaterials(){
   // MIC6 Aluminum
   // Used as ETL disk material
   nist->BuildMaterialWithNewDensity("MIC6_Al", "G4_Al", 2.796*g/cm3, NTP_Temperature, STP_Pressure); // 0.101*lb/in3
+  nist->BuildMaterialWithNewDensity("Cool_CO2", "G4_CARBON_DIOXIDE", nist_CO2->GetDensity() * NTP_Temperature / ((273.15 - 20.-35.)*CLHEP::kelvin), (273.15 - 20.-35.)*CLHEP::kelvin, STP_Pressure);
+
 
   // When calling FindOrBuildElement, do not use 'G4_' at the beginning of the element name
   G4Element* Aluminum = nist->FindOrBuildElement("Al");
@@ -69,8 +81,8 @@ void DetectorConstruction::DefineMaterials(){
   G4Element* Carbon = nist->FindOrBuildElement("C");
   G4Element* Hydrogen = nist->FindOrBuildElement("H");
   G4Element* Silicon = nist->FindOrBuildElement("Si");
-  G4Element* Tin = nist->FindOrBuildElement("Sn");
-  G4Element* Silver = nist->FindOrBuildElement("Ag");
+  //G4Element* Tin = nist->FindOrBuildElement("Sn");
+  //G4Element* Silver = nist->FindOrBuildElement("Ag");
   G4Element* Copper = nist->FindOrBuildElement("Cu");
   G4cout << "DetectorConstruction::DefineMaterials: Elements built." << G4endl;
 
@@ -104,16 +116,16 @@ void DetectorConstruction::DefineMaterials(){
   Laird->AddElement(Carbon, (G4int) 1);
   Laird->AddElement(Hydrogen, (G4int) 1);
 
-  G4Material* SnAg = new G4Material("SnAg", (7.31*0.5 + 10.49*0.5)*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc.
-  SnAg->AddElement(Tin, (G4double) 0.5);
-  SnAg->AddElement(Silver, (G4double) 0.5);
+  G4Material* SnAg = new G4Material("SnAg", (nist_Sn->GetDensity()*0.5 + nist_Ag->GetDensity()*0.5)*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc.
+  SnAg->AddMaterial(nist_Sn, (G4double) 0.5);
+  SnAg->AddMaterial(nist_Ag, (G4double) 0.5);
 
   G4Material* SensorBump = new G4Material("SensorBump", (SnAg->GetDensity()*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc
   SensorBump->AddMaterial(SnAg, (G4double) 0.1);
   SensorBump->AddMaterial(Air, (G4double) 0.9);
 
-  G4Material* ServiceConnector = new G4Material("ServiceConnector", (8.96*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc
-  ServiceConnector->AddElement(Copper, (G4double) 0.1);
+  G4Material* ServiceConnector = new G4Material("ServiceConnector", (nist_Cu->GetDensity()*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc
+  ServiceConnector->AddMaterial(nist_Cu, (G4double) 0.1);
   ServiceConnector->AddMaterial(Air, (G4double) 0.9);
 
   G4cout << "DetectorConstruction::DefineMaterials: AlN built!" << G4endl;
@@ -157,6 +169,8 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double etrocSize_X = getDimension(detname+"_X");
   G4double etrocSize_Y = getDimension(detname+"_Y");
   G4double etrocSize_Z = getDimension(detname+"_Z");
+  G4double etrocOffset_X = getDimension(detname+"_Offset_X");
+  G4double etrocSep_Y = getDimension(detname+"_Sep_Y");
   G4Material* etrocMat = G4Material::GetMaterial("Mat_ETROC");
   G4VisAttributes* etrocVisAttr = new G4VisAttributes(G4Colour::Green()); etrocVisAttr->SetVisibility(true);
 
@@ -165,6 +179,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double lairdfilmSize_X = getDimension(detname+"_X");
   G4double lairdfilmSize_Y = getDimension(detname+"_Y");
   G4double lairdfilmSize_Z = getDimension(detname+"_Z");
+  G4double lairdfilmOffset_X = getDimension(detname+"_Offset_X");
   G4Material* lairdfilmMat = G4Material::GetMaterial("Laird");
   G4VisAttributes* lairdfilmVisAttr = new G4VisAttributes(G4Colour::Brown()); lairdfilmVisAttr->SetVisibility(true);
 
@@ -173,6 +188,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double lgadSize_X = getDimension(detname+"_X");
   G4double lgadSize_Y = getDimension(detname+"_Y");
   G4double lgadSize_Z = getDimension(detname+"_Z");
+  G4double lgadOffset_X = getDimension(detname+"_Offset_X");
   G4Material* lgadMat = G4Material::GetMaterial("Mat_LGAD");
   G4VisAttributes* lgadVisAttr = new G4VisAttributes(G4Colour::Yellow()); lgadVisAttr->SetVisibility(true);
 
@@ -181,6 +197,8 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double bumpsSize_X = getDimension(detname+"_X");
   G4double bumpsSize_Y = getDimension(detname+"_Y");
   G4double bumpsSize_Z = getDimension(detname+"_Z");
+  G4double bumpsOffset_X = getDimension(detname+"_Offset_X");
+  G4double bumpsSep_Y = getDimension(detname+"_Sep_Y");
   G4Material* bumpsMat = G4Material::GetMaterial("SensorBump");
   G4VisAttributes* bumpsVisAttr = new G4VisAttributes(G4Colour::Magenta()); bumpsVisAttr->SetVisibility(true);
 
@@ -189,6 +207,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double epoxySize_X = getDimension(detname+"_X");
   G4double epoxySize_Y = getDimension(detname+"_Y");
   G4double epoxySize_Z = getDimension(detname+"_Z");
+  G4double epoxyOffset_X = getDimension(detname+"_Offset_X");
   G4Material* epoxyMat = G4Material::GetMaterial("Epoxy");
   G4VisAttributes* epoxyVisAttr = new G4VisAttributes(G4Colour::Brown()); epoxyVisAttr->SetVisibility(true);
 
@@ -197,6 +216,7 @@ void DetectorConstruction::BuildOneSensorModule(
   G4double coverplateSize_X = getDimension(detname+"_X");
   G4double coverplateSize_Y = getDimension(detname+"_Y");
   G4double coverplateSize_Z = getDimension(detname+"_Z");
+  G4double coverplateOffset_X = getDimension(detname+"_Offset_X");
   G4Material* coverplateMat = G4Material::GetMaterial("AlN");
   G4VisAttributes* coverplateVisAttr = new G4VisAttributes(G4Colour::Gray()); coverplateVisAttr->SetVisibility(true);
 
@@ -239,7 +259,7 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   basefilmLogical->SetVisAttributes(basefilmVisAttr);
-  G4PVPlacement* basefilmPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, (basefilmSize_Z-moduleSize_Z)/2.),
     basefilmLogical,
     detname.c_str(),
@@ -259,7 +279,7 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   baseplateLogical->SetVisAttributes(baseplateVisAttr);
-  G4PVPlacement* baseplatePV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, basefilmSize_Z+(baseplateSize_Z-moduleSize_Z)/2.),
     baseplateLogical,
     detname.c_str(),
@@ -279,8 +299,8 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   lairdfilmLogical->SetVisAttributes(lairdfilmVisAttr);
-  G4PVPlacement* lairdfilmPV = new G4PVPlacement(
-    0, G4ThreeVector((lairdfilmSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((lairdfilmSize_X-baseplateSize_X)/2. + lairdfilmOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
     lairdfilmLogical,
     detname.c_str(),
     moduleLogical,
@@ -299,15 +319,15 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   etrocLogical->SetVisAttributes(etrocVisAttr);
-  G4PVPlacement* etroc1PV = new G4PVPlacement(
-    0, G4ThreeVector((etrocSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), -etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X)*(rightFlank ? 1. : -1.), -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* etroc2PV = new G4PVPlacement(
-    0, G4ThreeVector((etrocSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), +etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X)*(rightFlank ? 1. : -1.), +(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -327,10 +347,17 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   bumpsLogical->SetVisAttributes(bumpsVisAttr);
-  G4PVPlacement* bumpsPV = new G4PVPlacement(
-    0, G4ThreeVector((bumpsSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((bumpsSize_X-baseplateSize_X)/2. + bumpsOffset_X)*(rightFlank ? 1. : -1.), -(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
     bumpsLogical,
-    detname.c_str(),
+    (detname+"1").c_str(),
+    moduleLogical,
+    false, 0, fCheckOverlaps
+  );
+  new G4PVPlacement(
+    0, G4ThreeVector(((bumpsSize_X-baseplateSize_X)/2. + bumpsOffset_X)*(rightFlank ? 1. : -1.), +(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+    bumpsLogical,
+    (detname+"2").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
@@ -347,8 +374,8 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   lgadLogical->SetVisAttributes(lgadVisAttr);
-  G4PVPlacement* lgadPV = new G4PVPlacement(
-    0, G4ThreeVector((lgadSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((lgadSize_X-baseplateSize_X)/2. + lgadOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
     detname.c_str(),
     moduleLogical,
@@ -367,8 +394,8 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   epoxyLogical->SetVisAttributes(epoxyVisAttr);
-  G4PVPlacement* epoxyPV = new G4PVPlacement(
-    0, G4ThreeVector((epoxySize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((epoxySize_X-baseplateSize_X)/2. + epoxyOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
     epoxyLogical,
     detname.c_str(),
     moduleLogical,
@@ -387,8 +414,8 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   coverplateLogical->SetVisAttributes(coverplateVisAttr);
-  G4PVPlacement* coverplatePV = new G4PVPlacement(
-    0, G4ThreeVector((coverplateSize_X-baseplateSize_X)/2.*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(((coverplateSize_X-baseplateSize_X)/2. + coverplateOffset_X)*(rightFlank ? 1. : -1.), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
     coverplateLogical,
     detname.c_str(),
     moduleLogical,
@@ -429,6 +456,8 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double etrocSize_X = getDimension(detname+"_X");
   G4double etrocSize_Y = getDimension(detname+"_Y");
   G4double etrocSize_Z = getDimension(detname+"_Z");
+  G4double etrocSep_X = getDimension(detname+"_Sep_X");
+  G4double etrocSep_Y = getDimension(detname+"_Sep_Y");
   G4Material* etrocMat = G4Material::GetMaterial("Mat_ETROC");
   G4VisAttributes* etrocVisAttr = new G4VisAttributes(G4Colour::Green()); etrocVisAttr->SetVisibility(true);
 
@@ -445,6 +474,7 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double lgadSize_X = getDimension(detname+"_X");
   G4double lgadSize_Y = getDimension(detname+"_Y");
   G4double lgadSize_Z = getDimension(detname+"_Z");
+  G4double lgadSep_X = getDimension(detname+"_Sep_X");
   G4Material* lgadMat = G4Material::GetMaterial("Mat_LGAD");
   G4VisAttributes* lgadVisAttr = new G4VisAttributes(G4Colour::Yellow()); lgadVisAttr->SetVisibility(true);
 
@@ -453,6 +483,8 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double bumpsSize_X = getDimension(detname+"_X");
   G4double bumpsSize_Y = getDimension(detname+"_Y");
   G4double bumpsSize_Z = getDimension(detname+"_Z");
+  G4double bumpsSep_X = getDimension(detname+"_Sep_X");
+  G4double bumpsSep_Y = getDimension(detname+"_Sep_Y");
   G4Material* bumpsMat = G4Material::GetMaterial("SensorBump");
   G4VisAttributes* bumpsVisAttr = new G4VisAttributes(G4Colour::Magenta()); bumpsVisAttr->SetVisibility(true);
 
@@ -461,6 +493,7 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double epoxySize_X = getDimension(detname+"_X");
   G4double epoxySize_Y = getDimension(detname+"_Y");
   G4double epoxySize_Z = getDimension(detname+"_Z");
+  G4double epoxySep_X = getDimension(detname+"_Sep_X");
   G4Material* epoxyMat = G4Material::GetMaterial("Epoxy");
   G4VisAttributes* epoxyVisAttr = new G4VisAttributes(G4Colour::Brown()); epoxyVisAttr->SetVisibility(true);
 
@@ -469,6 +502,7 @@ void DetectorConstruction::BuildTwoSensorModule(
   G4double coverplateSize_X = getDimension(detname+"_X");
   G4double coverplateSize_Y = getDimension(detname+"_Y");
   G4double coverplateSize_Z = getDimension(detname+"_Z");
+  G4double coverplateSep_X = getDimension(detname+"_Sep_X");
   G4Material* coverplateMat = G4Material::GetMaterial("AlN");
   G4VisAttributes* coverplateVisAttr = new G4VisAttributes(G4Colour::Gray()); coverplateVisAttr->SetVisibility(true);
 
@@ -511,7 +545,7 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   basefilmLogical->SetVisAttributes(basefilmVisAttr);
-  G4PVPlacement* basefilmPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, (basefilmSize_Z-moduleSize_Z)/2.),
     basefilmLogical,
     detname.c_str(),
@@ -531,7 +565,7 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   baseplateLogical->SetVisAttributes(baseplateVisAttr);
-  G4PVPlacement* baseplatePV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, basefilmSize_Z+(baseplateSize_Z-moduleSize_Z)/2.),
     baseplateLogical,
     detname.c_str(),
@@ -551,7 +585,7 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   lairdfilmLogical->SetVisAttributes(lairdfilmVisAttr);
-  G4PVPlacement* lairdfilmPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, basefilmSize_Z+baseplateSize_Z+(lairdfilmSize_Z-moduleSize_Z)/2.),
     lairdfilmLogical,
     detname.c_str(),
@@ -571,29 +605,29 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   etrocLogical->SetVisAttributes(etrocVisAttr);
-  G4PVPlacement* etroc1PV = new G4PVPlacement(
-    0, G4ThreeVector(-etrocSize_X/2., -etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(etrocSize_X+etrocSep_X)/2., -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* etroc2PV = new G4PVPlacement(
-    0, G4ThreeVector(-etrocSize_X/2., +etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(etrocSize_X+etrocSep_X)/2., +(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"2").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* etroc3PV = new G4PVPlacement(
-    0, G4ThreeVector(+etrocSize_X/2., -etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(+(etrocSize_X+etrocSep_X)/2., -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"3").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* etroc4PV = new G4PVPlacement(
-    0, G4ThreeVector(+etrocSize_X/2., +etrocSize_Y/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(+(etrocSize_X+etrocSep_X)/2., +(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
     (detname+"4").c_str(),
     moduleLogical,
@@ -614,17 +648,31 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   bumpsLogical->SetVisAttributes(bumpsVisAttr);
-  G4PVPlacement* bumps1PV = new G4PVPlacement(
-    0, G4ThreeVector(-bumpsSize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(bumpsSize_X+bumpsSep_X)/2., -(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
     bumpsLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* bumps2PV = new G4PVPlacement(
-    0, G4ThreeVector(+bumpsSize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(bumpsSize_X+bumpsSep_X)/2., +(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
     bumpsLogical,
     (detname+"2").c_str(),
+    moduleLogical,
+    false, 0, fCheckOverlaps
+  );
+  new G4PVPlacement(
+    0, G4ThreeVector(+(bumpsSize_X+bumpsSep_X)/2., -(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+    bumpsLogical,
+    (detname+"3").c_str(),
+    moduleLogical,
+    false, 0, fCheckOverlaps
+  );
+  new G4PVPlacement(
+    0, G4ThreeVector(+(bumpsSize_X+bumpsSep_X)/2., +(bumpsSize_Y+bumpsSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+(bumpsSize_Z-moduleSize_Z)/2.),
+    bumpsLogical,
+    (detname+"4").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
@@ -641,15 +689,15 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   lgadLogical->SetVisAttributes(lgadVisAttr);
-  G4PVPlacement* lgad1PV = new G4PVPlacement(
-    0, G4ThreeVector(-lgadSize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(lgadSize_X+lgadSep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* lgad2PV = new G4PVPlacement(
-    0, G4ThreeVector(+lgadSize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(+(lgadSize_X+lgadSep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -668,15 +716,15 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   epoxyLogical->SetVisAttributes(epoxyVisAttr);
-  G4PVPlacement* epoxy1PV = new G4PVPlacement(
-    0, G4ThreeVector(-epoxySize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(epoxySize_X+epoxySep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
     epoxyLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* epoxy2PV = new G4PVPlacement(
-    0, G4ThreeVector(+epoxySize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(+(epoxySize_X+epoxySep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+(epoxySize_Z-moduleSize_Z)/2.),
     epoxyLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -695,15 +743,15 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   coverplateLogical->SetVisAttributes(coverplateVisAttr);
-  G4PVPlacement* coverplate1PV = new G4PVPlacement(
-    0, G4ThreeVector(-coverplateSize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(-(coverplateSize_X+coverplateSep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
     coverplateLogical,
     (detname+"1").c_str(),
     moduleLogical,
     false, 0, fCheckOverlaps
   );
-  G4PVPlacement* coverplate2PV = new G4PVPlacement(
-    0, G4ThreeVector(+coverplateSize_X/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
+  new G4PVPlacement(
+    0, G4ThreeVector(+(coverplateSize_X+coverplateSep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+lgadSize_Z+epoxySize_Z+(coverplateSize_Z-moduleSize_Z)/2.),
     coverplateLogical,
     (detname+"2").c_str(),
     moduleLogical,
@@ -795,7 +843,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
     detname.c_str()
   );
   thermalpadLogical->SetVisAttributes(thermalpadVisAttr);
-  G4PVPlacement* thermalpadPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, (thermalpadSize_Z-servicehybridSize_Z)/2.),
     thermalpadLogical,
     detname.c_str(),
@@ -815,7 +863,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
     detname.c_str()
   );
   readoutboardLogical->SetVisAttributes(readoutboardVisAttr);
-  G4PVPlacement* readoutboardPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, thermalpadSize_Z+(readoutboardSize_Z-servicehybridSize_Z)/2.),
     readoutboardLogical,
     detname.c_str(),
@@ -835,7 +883,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
     detname.c_str()
   );
   connectorLogical->SetVisAttributes(connectorVisAttr);
-  G4PVPlacement* connectorPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, thermalpadSize_Z+readoutboardSize_Z+(connectorSize_Z-servicehybridSize_Z)/2.),
     connectorLogical,
     detname.c_str(),
@@ -855,7 +903,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
     detname.c_str()
   );
   powerboardLogical->SetVisAttributes(powerboardVisAttr);
-  G4PVPlacement* powerboardPV = new G4PVPlacement(
+  new G4PVPlacement(
     0, G4ThreeVector(0, 0, thermalpadSize_Z+readoutboardSize_Z+connectorSize_Z+(powerboardSize_Z-servicehybridSize_Z)/2.),
     powerboardLogical,
     detname.c_str(),
@@ -864,6 +912,252 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   );
 }
 
+void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, std::vector<std::pair<G4double, G4double>> const& coolingpipes_xpos_ymin){
+  using namespace ETLDetectorDimensions;
+
+  string const detbase = "ETLWedge";
+  string detname;
+
+  G4Material* Epoxy_mat = G4Material::GetMaterial("Epoxy");
+  G4Material* MIC6Al_mat = G4Material::GetMaterial("MIC6_Al");
+  G4Material* CoolingAl_mat = G4Material::GetMaterial("G4_Al");
+  G4Material* Cooling_mat = G4Material::GetMaterial("Cool_CO2");
+  G4Material* CoolingPipe_mat = G4Material::GetMaterial("G4_STAINLESS-STEEL");
+  if (!Epoxy_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve Epoxy_mat.";
+    G4Exception("DetectorConstruction::BuildWedgeComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!MIC6Al_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve MIC6_Al_mat.";
+    G4Exception("DetectorConstruction::BuildWedgeComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!CoolingAl_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve CoolingAl_mat.";
+    G4Exception("DetectorConstruction::BuildWedgeComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!Cooling_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve Cooling_mat.";
+    G4Exception("DetectorConstruction::BuildWedgeComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!CoolingPipe_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve CoolingPipe_mat.";
+    G4Exception("DetectorConstruction::BuildWedgeComponents",
+                "MyCode0001", FatalException, msg);
+  }
+
+  detname = detbase;
+  G4double wedge_Rmin = getDimension(detname+"_Rmin");
+  G4double wedge_Rmax = getDimension(detname+"_Rmax");
+  G4double wedge_MIC6Al_Z = getDimension(detname+"_MIC6Al_Z");
+  G4double wedge_Epoxy_Z = getDimension(detname+"_Epoxy_Z");
+  G4double wedge_CoolingAl_Z = getDimension(detname+"_CoolingAl_Z");
+  G4double wedge_Z = getDimension(detname+"_Z");
+  G4double wedge_fullZ = getDimension(detname+"_FullZ");
+  constexpr bool addMIC6Al = true;
+  constexpr bool addEpoxy = false;
+  constexpr bool addCoolingAl = false;
+
+  detname = detbase + "_CoolingPipe";
+  G4double coolingpipe_Rmin = getDimension(detname+"_Rmin");
+  G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
+  constexpr bool drillCoolingPipeCavities = true;
+  constexpr bool addCoolingPipes = false && drillCoolingPipeCavities;
+
+  // MIC6 Al
+  if (addMIC6Al){
+    detname = detbase + "_MIC6Al";
+    G4VSolid* solidMIC6Al = nullptr;
+    // The cooling pipes are embedded in the MIC6 Al, so the solid construction involves drilling pipes :(
+    if (drillCoolingPipeCavities){
+      // Begin construction of the complex solidMIC6Al solid
+      G4Tubs* solidMIC6AlBase = new G4Tubs(
+        (detname+"Base").c_str(),
+        wedge_Rmin, wedge_Rmax, wedge_MIC6Al_Z/2., 0, 90.*degree
+      );
+      std::vector<G4Box*> boxes;
+      std::vector<G4Tubs*> tubes;
+      std::vector<G4UnionSolid*> box_tubes;
+      std::vector<G4SubtractionSolid*> subtractedWedges;
+      for (std::pair<G4double, G4double> const& xpos_ymin:coolingpipes_xpos_ymin){
+        G4double const& xpos = xpos_ymin.first;
+        G4double const& ymin = xpos_ymin.second;
+        G4double ymax = std::sqrt(std::pow(wedge_Rmax, 2) - std::pow(xpos_ymin.first, 2));
+        G4cout << "Placing a pipe cavity at x = " << xpos_ymin.first << " with y min/max = " << ymin << " / " << ymax << G4endl;
+
+        G4double ldy = coolingpipe_Rmax;
+        G4double ldx = 2.*ldy;
+        G4double ldz = ymax - ymin;
+        G4Box* theBox = new G4Box((detname+"_ConstituentBox").c_str(), ldx/2., ldy/2., ldz/2.); // dy and dz will be swapped after rotation
+        G4Tubs* theTube = new G4Tubs((detname+"_ConstituentTube").c_str(), G4double(0.), ldy, ldz/2., M_PI*rad, M_PI*rad*2.);
+        G4cout << "\t- Box dimensions: (x,y,z) = ( " << ldx << ", " << ldy << ", " << ldz << " )" << G4endl;
+        G4cout << "\t- Tube dimensions: (r,phi,z) = ( " << ldy << ", " << M_PI*rad*2. << ", " << ldz << " )" << G4endl;
+        boxes.push_back(theBox);
+        tubes.push_back(theTube);
+
+        /*
+        G4Transform3D local_trans_tube(G4RotationMatrix(), G4ThreeVector(G4double(0), ldy/2., G4double(0)));
+        G4UnionSolid* theTubeAndBox = new G4UnionSolid((detname+"_ConstituentTubeAndBox").c_str(), theTube, theBox, local_trans_tube);
+        box_tubes.push_back(theTubeAndBox);
+
+        G4RotationMatrix rotm; rotm.rotateX(M_PI/2.*rad);
+        G4ThreeVector relpos_tube(xpos, ymin, wedge_MIC6Al_Z/2.-ldy);
+        G4Transform3D rot_trans_tube(rotm, relpos_tube);
+
+        G4IntersectionSolid* intersectionSolid = new G4IntersectionSolid((detname+"_ConstituentTubeAndBox").c_str(), solidMIC6AlBase, theTubeAndBox, rot_trans_tube);
+        G4SubtractionSolid* subtractionSolid = new G4SubtractionSolid(detname, (subtractedWedges.empty() ? (G4VSolid*) solidMIC6AlBase : (G4VSolid*) subtractedWedges.back()), intersectionSolid);
+
+        subtractedWedges.push_back(subtractionSolid);
+        */
+        G4RotationMatrix rotm; rotm.rotateX(M_PI/2.*rad);
+        G4ThreeVector relpos_tube(xpos, ymin, wedge_MIC6Al_Z/2.-ldy);
+        G4ThreeVector relpos_box(xpos, ymin, wedge_MIC6Al_Z/2.-ldy/2.);
+        G4Transform3D rot_trans_tube(rotm, relpos_tube);
+        G4Transform3D rot_trans_box(rotm, relpos_box);
+        G4SubtractionSolid* subtractionSolid = new G4SubtractionSolid(detname, (subtractedWedges.empty() ? (G4VSolid*) solidMIC6AlBase : (G4VSolid*) subtractedWedges.back()), theTube, rot_trans_tube);
+        subtractedWedges.push_back(subtractionSolid);
+        subtractionSolid = new G4SubtractionSolid(detname, (subtractedWedges.empty() ? (G4VSolid*) solidMIC6AlBase : (G4VSolid*) subtractedWedges.back()), theBox, rot_trans_box);
+        subtractedWedges.push_back(subtractionSolid);
+      }
+      solidMIC6Al = subtractedWedges.back();
+      // End construction of the complex solidMIC6Al solid
+    }
+    else{
+      // Begin construction of the basic solidMIC6Al solid
+      solidMIC6Al = new G4Tubs(
+        detname.c_str(),
+        wedge_Rmin, wedge_Rmax, wedge_MIC6Al_Z/2., 0, 90.*degree
+      );
+      // End construction of the basic solidMIC6Al solid
+    }
+    G4LogicalVolume* logicMIC6Al = new G4LogicalVolume(
+      solidMIC6Al,
+      MIC6Al_mat,
+      detname.c_str()
+    );
+    G4VisAttributes* MIC6AlVisAttr = new G4VisAttributes(G4Colour::Gray()); MIC6AlVisAttr->SetVisibility(true);
+    logicMIC6Al->SetVisAttributes(MIC6AlVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector(0, 0, (-wedge_Z+wedge_MIC6Al_Z)/2.),
+      logicMIC6Al,
+      detname.c_str(),
+      motherLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+
+  if (addCoolingPipes){
+    detname = detbase + "_CoolingPipe";
+    G4RotationMatrix* rotm = new G4RotationMatrix(); rotm->rotateX(M_PI*rad/2.);
+    for (std::pair<G4double, G4double> const& xpos_ymin:coolingpipes_xpos_ymin){
+      G4double const& ymin = xpos_ymin.second;
+      G4double ymax = std::sqrt(std::pow(wedge_Rmax, 2) - std::pow(xpos_ymin.first, 2));
+      G4double dy = ymax-ymin;
+      G4Tubs* solidInnerTube = new G4Tubs((detname+"_Inner").c_str(), G4double(0.), coolingpipe_Rmin, dy/2., G4double(0), M_PI*rad);
+      G4Tubs* solidOuterTube = new G4Tubs((detname+"_Outer").c_str(), coolingpipe_Rmin, coolingpipe_Rmax, dy/2., G4double(0), M_PI*rad);
+
+      G4VisAttributes* visAttr = nullptr;
+      G4LogicalVolume* logicInnerTube = new G4LogicalVolume(
+        solidInnerTube,
+        Cooling_mat,
+        (detname+"_Inner").c_str()
+      );
+      visAttr = new G4VisAttributes(G4Colour::White()); visAttr->SetVisibility(true);
+      logicInnerTube->SetVisAttributes(visAttr);
+      G4LogicalVolume* logicOuterTube = new G4LogicalVolume(
+        solidOuterTube,
+        CoolingPipe_mat,
+        (detname+"_Outer").c_str()
+      );
+      visAttr = new G4VisAttributes(G4Colour::Blue()); visAttr->SetVisibility(true);
+      logicOuterTube->SetVisAttributes(visAttr);
+
+      new G4PVPlacement(
+        rotm,
+        G4ThreeVector(xpos_ymin.first, ymin, (-wedge_Z+wedge_Epoxy_Z)/2.+wedge_MIC6Al_Z),
+        logicInnerTube,
+        (detname+"_Inner").c_str(),
+        motherLogical,
+        false,
+        0,
+        fCheckOverlaps
+      );
+      new G4PVPlacement(
+        rotm,
+        G4ThreeVector(xpos_ymin.first, ymin, (-wedge_Z+wedge_Epoxy_Z)/2.+wedge_MIC6Al_Z),
+        logicOuterTube,
+        (detname+"_Outer").c_str(),
+        motherLogical,
+        false,
+        0,
+        fCheckOverlaps
+      );
+    }
+  }
+
+  // Epoxy
+  detname = detbase + "_Epoxy";
+  if (addEpoxy){
+    G4Tubs* solidEpoxy = new G4Tubs(
+      detname.c_str(),
+      wedge_Rmin, wedge_Rmax, wedge_Epoxy_Z/2., 0, 90.*degree
+    );
+    G4LogicalVolume* logicEpoxy = new G4LogicalVolume(
+      solidEpoxy,
+      Epoxy_mat,
+      detname.c_str()
+    );
+    G4VisAttributes* EpoxyVisAttr = new G4VisAttributes(G4Colour::Brown()); EpoxyVisAttr->SetVisibility(true);
+    logicEpoxy->SetVisAttributes(EpoxyVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector(0, 0, (-wedge_Z+wedge_Epoxy_Z)/2.+wedge_MIC6Al_Z),
+      logicEpoxy,
+      detname.c_str(),
+      motherLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+
+  // CoolingAl
+  detname = detbase + "_CoolingAl";
+  if (addCoolingAl){
+    G4Tubs* solidCoolingAl = new G4Tubs(
+      detname.c_str(),
+      wedge_Rmin, wedge_Rmax, wedge_CoolingAl_Z/2., 0, 90.*degree
+    );
+    G4LogicalVolume* logicCoolingAl = new G4LogicalVolume(
+      solidCoolingAl,
+      CoolingAl_mat,
+      detname.c_str()
+    );
+    G4VisAttributes* CoolingAlVisAttr = new G4VisAttributes(G4Colour::Gray()); CoolingAlVisAttr->SetVisibility(true);
+    logicCoolingAl->SetVisAttributes(CoolingAlVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector(0, 0, (-wedge_Z+wedge_CoolingAl_Z)/2.+wedge_MIC6Al_Z+wedge_Epoxy_Z),
+      logicCoolingAl,
+      detname.c_str(),
+      motherLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+}
 
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
@@ -872,7 +1166,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Setup materials
   G4Material* world_mat = G4Material::GetMaterial("Vacuum");
   G4Material* envelope_mat = G4Material::GetMaterial("Vacuum");
-  G4Material* wedge_mat = G4Material::GetMaterial("AlN");
   if (!world_mat){
     G4ExceptionDescription msg;
     msg << "Cannot retrieve world_mat.";
@@ -882,12 +1175,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   if (!envelope_mat){
     G4ExceptionDescription msg;
     msg << "Cannot retrieve envelope_mat.";
-    G4Exception("DetectorConstruction::DefineVolumes",
-                "MyCode0001", FatalException, msg);
-  }
-  if (!wedge_mat){
-    G4ExceptionDescription msg;
-    msg << "Cannot retrieve wedge_mat.";
     G4Exception("DetectorConstruction::DefineVolumes",
                 "MyCode0001", FatalException, msg);
   }
@@ -938,7 +1225,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double wedge_Rmin = getDimension(detname+"_Rmin");
   G4double wedge_Rmax = getDimension(detname+"_Rmax");
   G4double wedge_Z = getDimension(detname+"_Z");
-  G4double wedge_fullZ = wedge_Z + 2.*std::max(std::max(servicehybrid12_Z, servicehybrid6_Z), std::max(onesensor_Z, twosensor_Z));
+  G4double wedge_fullZ = getDimension(detname+"_FullZ");
 
   // External offsets
   detname = det_offset + "_Module_SensorServiceHybrid_dX";
@@ -958,6 +1245,17 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double env_sizeY = world_sizeY;
   G4double env_sizeZ = world_sizeZ;
 
+
+  /******************/
+  /******************/
+  /* BEGIN GEOMETRY */
+  /******************/
+  /******************/
+  constexpr bool putServiceHybrids = false;
+  constexpr bool putModules = false;
+  constexpr bool putWedgeComponents = true;
+  constexpr bool doWedgeFrontFace = true;
+  constexpr bool doWedgeBackFace = true;
 
   // World
   G4Box* solidWorld = new G4Box(
@@ -1013,10 +1311,10 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   );
   G4LogicalVolume* logicWedge = new G4LogicalVolume(
     solidWedge,
-    wedge_mat,
+    envelope_mat, // Notice here that the material defined is the dummy envelope material, not the actual materials for the wedge components
     detname.c_str()
   );
-  G4VisAttributes* wedgeVisAttr = new G4VisAttributes(G4Colour::Gray()); wedgeVisAttr->SetVisibility(true);
+  G4VisAttributes* wedgeVisAttr = new G4VisAttributes(G4Colour::Black()); wedgeVisAttr->SetVisibility(false); // The wedge object should not be visible
   logicWedge->SetVisAttributes(wedgeVisAttr);
   new G4PVPlacement(
     0,                       //no reflectionTransformation
@@ -1038,12 +1336,11 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double wedge_yposmax;
   G4double wedge_Roffset;
   G4RotationMatrix* reflectionTransformation;
+  std::vector<std::pair<G4double, G4double>> coolingpipes_xpos_ymin;
   std::vector<std::pair<G4double, G4double>> sensorhybrid_yminmax;
   std::vector<G4double> sensorhybrid_xpos;
   std::vector<std::pair<G4double, G4double>>::const_iterator moduleSensorHybridConnection_yminmax_left, moduleSensorHybridConnection_yminmax_right, moduleSensorHybridConnection_yminmax_cend;
   std::vector<G4double>::const_iterator moduleSensorHybridConnection_xpos_left, moduleSensorHybridConnection_xpos_right, moduleSensorHybridConnection_xpos_cend;
-  constexpr bool doWedgeFrontFace = true;
-  constexpr bool doWedgeBackFace = true;
 
 
   /*****************************************/
@@ -1060,6 +1357,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
   while (doWedgeFrontFace){ // Loop over columns
     sensorhybrid_xpos.push_back(wedge_xpos);
+    coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
 
     wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + servicehybrid6_X/2., 2)));
     G4cout << "y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
@@ -1094,7 +1392,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid6_Z)/2.);
         G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid6_X << "," << servicehybrid6_Y << "," << servicehybrid6_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the 6-sensor service hybrid
-        BuildSensorServiceHybrid(
+        if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
           logicWedge, reflectionTransformation, relpos,
           servicehybridBox, servicehybridLogical, servicehybridPV
@@ -1113,7 +1411,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos, wedge_ypos, (wedge_Z+servicehybrid12_Z)/2.);
         G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid12_X << "," << servicehybrid12_Y << "," << servicehybrid12_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the 12-sensor service hybrid
-        BuildSensorServiceHybrid(
+        if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
           logicWedge, reflectionTransformation, relpos,
           servicehybridBox, servicehybridLogical, servicehybridPV
@@ -1190,6 +1488,11 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     G4double const& moduleWidthY = (useOneSensorModule ? onesensor_Y : twosensor_Y);
     G4cout << "Placing a set of " << (useOneSensorModule ? "one-" : "two-") << "sensor modules with width " << moduleWidthX << G4endl;
 
+    coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
+    // Correct ymin for the common segment of service hybrids
+    if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend)
+      coolingpipes_xpos_ymin.back().second = std::max(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
+
     size_t i_object=0;
     wedge_ypos = wedge_yposmin;
     while (true){
@@ -1260,7 +1563,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos+wedge_xpos_offset, wedge_ypos, (wedge_Z+onesensor_Z)/2.);
         G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
-        BuildOneSensorModule(
+        if (putModules) BuildOneSensorModule(
           firstColumn_OneSensorModule || placeRightFlankedOneSensorModule,
           logicWedge, reflectionTransformation, relpos,
           moduleBox, moduleLogical, modulePV
@@ -1277,7 +1580,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos+wedge_xpos_offset, wedge_ypos, (wedge_Z+twosensor_Z)/2.);
         G4cout << "\t- Placing two sensor modules of sizes (" << twosensor_X << "," << twosensor_Y << "," << twosensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
-        BuildTwoSensorModule(
+        if (putModules) BuildTwoSensorModule(
           logicWedge, reflectionTransformation, relpos,
           moduleBox, moduleLogical, modulePV
         );
@@ -1314,7 +1617,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   wedge_Roffset=0;
   ix_module=ix_service=0;
   wedge_xpos=0;
-  reflectionTransformation = new G4RotationMatrix; reflectionTransformation->rotateX(M_PI); reflectionTransformation->rotateZ(M_PI);
+  reflectionTransformation = new G4RotationMatrix; reflectionTransformation->rotateY(M_PI*rad);
   sensorhybrid_yminmax.clear();
   sensorhybrid_xpos.clear();
 
@@ -1359,7 +1662,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos, wedge_ypos, -(wedge_Z+servicehybrid6_Z)/2.);
         G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid6_X << "," << servicehybrid6_Y << "," << servicehybrid6_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the 6-sensor service hybrid
-        BuildSensorServiceHybrid(
+        if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
           logicWedge, reflectionTransformation, relpos,
           servicehybridBox, servicehybridLogical, servicehybridPV
@@ -1378,7 +1681,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos, wedge_ypos, -(wedge_Z+servicehybrid12_Z)/2.);
         G4cout << "\t- Placing service hybrid of sizes (" << servicehybrid12_X << "," << servicehybrid12_Y << "," << servicehybrid12_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the 12-sensor service hybrid
-        BuildSensorServiceHybrid(
+        if (putServiceHybrids) BuildSensorServiceHybrid(
           n_modules_per_side,
           logicWedge, reflectionTransformation, relpos,
           servicehybridBox, servicehybridLogical, servicehybridPV
@@ -1525,7 +1828,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos+wedge_xpos_offset, wedge_ypos, -(wedge_Z+onesensor_Z)/2.);
         G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
-        BuildOneSensorModule(
+        if (putModules) BuildOneSensorModule(
           lastColumn_OneSensorModule || placeLeftFlankedOneSensorModule,
           logicWedge, reflectionTransformation, relpos,
           moduleBox, moduleLogical, modulePV
@@ -1542,7 +1845,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4ThreeVector relpos(wedge_xpos+wedge_xpos_offset, wedge_ypos, -(wedge_Z+twosensor_Z)/2.);
         G4cout << "\t- Placing two sensor modules of sizes (" << twosensor_X << "," << twosensor_Y << "," << twosensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
-        BuildTwoSensorModule(
+        if (putModules) BuildTwoSensorModule(
           logicWedge, reflectionTransformation, relpos,
           moduleBox, moduleLogical, modulePV
         );
@@ -1571,6 +1874,12 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   }
 
 
+  /**********************************/
+  /**********************************/
+  /* Construct the wedge components */
+  /**********************************/
+  /**********************************/
+  if (putWedgeComponents) BuildWedgeComponents(logicWedge, coolingpipes_xpos_ymin);
 
 
   fScoringVolume = logicWedge;

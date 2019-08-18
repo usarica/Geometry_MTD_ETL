@@ -1,6 +1,8 @@
 #ifndef DetectorConstruction_h
 #define DetectorConstruction_h
 
+#include <vector>
+#include <utility>
 #include "G4VUserDetectorConstruction.hh"
 #include "globals.hh"
 #include "G4Box.hh"
@@ -24,6 +26,7 @@ protected:
   void BuildOneSensorModule(bool rightFlank, G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
   void BuildTwoSensorModule(G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos, G4Box*& moduleBox, G4LogicalVolume*& moduleLogical, G4PVPlacement*& modulePV);
   void BuildSensorServiceHybrid(int const& nSensorsPerSide, G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos, G4Box*& serviceBox, G4LogicalVolume*& serviceLogical, G4PVPlacement*& servicePV);
+  void BuildWedgeComponents(G4LogicalVolume* motherLogical, std::vector<std::pair<G4double, G4double>> const& coolingpipes_xpos_ymin);
 
 public:
   DetectorConstruction();

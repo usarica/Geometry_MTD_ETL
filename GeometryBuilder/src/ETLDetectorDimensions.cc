@@ -34,15 +34,15 @@ double ETLDetectorDimensions::getDimension(std::string const& subdet){
   dim_map_cit_t it = dimension_map.find(subdet);
   if (it != dimension_map.cend()) return it->second;
   else{
-    G4cout << "ETLDetectorDimensions::getDimension: Could not find the dimension " << subdet << G4endl;
+    G4cerr << "ETLDetectorDimensions::getDimension: Could not find the dimension " << subdet << G4endl;
     assert(0);
     return -1;
   }
 }
 void ETLDetectorDimensions::setDimensions(){
   setETLOffsets();
-  setETLOneSensorModuleDimensions();
   setETLTwoSensorModuleDimensions();
+  setETLOneSensorModuleDimensions();
   setETLSensorServiceHybridDimensions(3);
   setETLSensorServiceHybridDimensions(6);
   setETLWedgeDimensions();
@@ -80,54 +80,86 @@ void ETLDetectorDimensions::setETLOneSensorModuleDimensions(){
   double etrocSize_X = 22.3*mm;
   double etrocSize_Y = 20.8*mm;
   double etrocSize_Z = 0.25*mm;
+  double etrocOffset_X = getDimension("ETLTwoSensorModule_ETROC_Sep_X")/2.;
+  double etrocSep_Y = getDimension("ETLTwoSensorModule_ETROC_Sep_Y");
   dimension_map[detname+"_X"] = etrocSize_X;
   dimension_map[detname+"_Y"] = etrocSize_Y;
   dimension_map[detname+"_Z"] = etrocSize_Z;
+  dimension_map[detname+"_Offset_X"] = etrocOffset_X;
+  dimension_map[detname+"_Sep_Y"] = etrocSep_Y;
+  if (baseplateSize_X<etrocSize_X+etrocOffset_X){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: Base plate X size < ETROC X size + ETROC X offset!" << G4endl;
+    assert(0);
+  }
+  if (baseplateSize_Y<etrocSize_Y*2.+etrocSep_Y){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: Base plate Y size < ETROC Y size x 2 + ETROC Y separation!" << G4endl;
+    assert(0);
+  }
 
   // Laird film
   detname = detbase + "_LairdFilm";
   double lairdfilmSize_X = etrocSize_X;
-  double lairdfilmSize_Y = etrocSize_Y*2.;
+  double lairdfilmSize_Y = etrocSize_Y*2.+etrocSep_Y;
   double lairdfilmSize_Z = 0.08*mm;
+  double lairdfilmOffset_X = etrocOffset_X;
   dimension_map[detname+"_X"] = lairdfilmSize_X;
   dimension_map[detname+"_Y"] = lairdfilmSize_Y;
   dimension_map[detname+"_Z"] = lairdfilmSize_Z;
+  dimension_map[detname+"_Offset_X"] = lairdfilmOffset_X;
 
   // LGAD sensor
   detname = detbase + "_LGAD";
   double lgadSize_X = 21.2*mm;
   double lgadSize_Y = 42.0*mm;
   double lgadSize_Z = 0.3*mm;
+  double lgadOffset_X = getDimension("ETLTwoSensorModule_LGAD_Sep_X")/2.;
   dimension_map[detname+"_X"] = lgadSize_X;
   dimension_map[detname+"_Y"] = lgadSize_Y;
   dimension_map[detname+"_Z"] = lgadSize_Z;
+  dimension_map[detname+"_Offset_X"] = lgadOffset_X;
+  if (lgadSize_Y<etrocSize_Y*2.+etrocSep_Y){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: LGAD Y size < ETROC Y size x 2 + ETROC Y separation!" << G4endl;
+    assert(0);
+  }
+  if (baseplateSize_X<lgadSize_X+lgadOffset_X){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: Base plate X size < LGAD X size + LGAD X offset!" << G4endl;
+    assert(0);
+  }
 
   // Solder bumps
   detname = detbase + "_SolderBumps";
   double bumpsSize_X = lgadSize_X;
-  double bumpsSize_Y = etrocSize_Y*2.;
+  double bumpsSize_Y = etrocSize_Y;
   double bumpsSize_Z = 0.03*mm;
+  double bumpsOffset_X = lgadOffset_X;
+  double bumpsSep_Y = etrocSep_Y;
   dimension_map[detname+"_X"] = bumpsSize_X;
   dimension_map[detname+"_Y"] = bumpsSize_Y;
   dimension_map[detname+"_Z"] = bumpsSize_Z;
+  dimension_map[detname+"_Offset_X"] = bumpsOffset_X;
+  dimension_map[detname+"_Sep_Y"] = bumpsSep_Y;
 
   // Epoxy betwen sensor and AlN cover
   detname = detbase + "_EpoxyCover";
   double epoxySize_X = lgadSize_X;
   double epoxySize_Y = lgadSize_Y;
   double epoxySize_Z = 0.08*mm;
+  double epoxyOffset_X = lgadOffset_X;
   dimension_map[detname+"_X"] = epoxySize_X;
   dimension_map[detname+"_Y"] = epoxySize_Y;
   dimension_map[detname+"_Z"] = epoxySize_Z;
+  dimension_map[detname+"_Offset_X"] = epoxyOffset_X;
 
   // AlN sensor cover
   detname = detbase + "_CoverPlate";
   double coverplateSize_X = lgadSize_X; // Slightly wrong, should be slightly longer
   double coverplateSize_Y = lgadSize_Y;
   double coverplateSize_Z = 0.51*mm;
+  double coverplateOffset_X = getDimension("ETLTwoSensorModule_CoverPlate_Sep_X")/2.;
   dimension_map[detname+"_X"] = coverplateSize_X;
   dimension_map[detname+"_Y"] = coverplateSize_Y;
   dimension_map[detname+"_Z"] = coverplateSize_Z;
+  dimension_map[detname+"_Offset_X"] = coverplateOffset_X;
 
   // All of the module
   detname = detbase;
@@ -151,7 +183,6 @@ void ETLDetectorDimensions::setETLTwoSensorModuleDimensions(){
   dimension_map[detname+"_Y"] = baseplateSize_Y;
   dimension_map[detname+"_Z"] = baseplateSize_Z;
 
-
   // Thermal pad
   detname = detbase + "_BaseFilm";
   double basefilmSize_X = baseplateSize_X;
@@ -166,14 +197,26 @@ void ETLDetectorDimensions::setETLTwoSensorModuleDimensions(){
   double etrocSize_X = 22.3*mm;
   double etrocSize_Y = 20.8*mm;
   double etrocSize_Z = 0.25*mm;
+  double etrocSep_X = 0.2*mm;
+  double etrocSep_Y = 0.1*mm;
   dimension_map[detname+"_X"] = etrocSize_X;
   dimension_map[detname+"_Y"] = etrocSize_Y;
   dimension_map[detname+"_Z"] = etrocSize_Z;
+  dimension_map[detname+"_Sep_X"] = etrocSep_X;
+  dimension_map[detname+"_Sep_Y"] = etrocSep_Y;
+  if (baseplateSize_X<etrocSize_X*2.+etrocSep_X){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: Base plate X size < ETROC X size x 2 + ETROC X separation!" << G4endl;
+    assert(0);
+  }
+  if (baseplateSize_Y<etrocSize_Y*2.+etrocSep_Y){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: Base plate Y size < ETROC Y size x 2 + ETROC Y separation!" << G4endl;
+    assert(0);
+  }
 
   // Laird film
   detname = detbase + "_LairdFilm";
-  double lairdfilmSize_X = etrocSize_X*2.;
-  double lairdfilmSize_Y = etrocSize_Y*2.;
+  double lairdfilmSize_X = etrocSize_X*2.+etrocSep_X;
+  double lairdfilmSize_Y = etrocSize_Y*2.+etrocSep_Y;
   double lairdfilmSize_Z = 0.08*mm;
   dimension_map[detname+"_X"] = lairdfilmSize_X;
   dimension_map[detname+"_Y"] = lairdfilmSize_Y;
@@ -184,36 +227,54 @@ void ETLDetectorDimensions::setETLTwoSensorModuleDimensions(){
   double lgadSize_X = 21.2*mm;
   double lgadSize_Y = 42.0*mm;
   double lgadSize_Z = 0.3*mm;
+  double lgadSep_X = 0.05*mm;
   dimension_map[detname+"_X"] = lgadSize_X;
   dimension_map[detname+"_Y"] = lgadSize_Y;
   dimension_map[detname+"_Z"] = lgadSize_Z;
+  dimension_map[detname+"_Sep_X"] = lgadSep_X;
+  if (lgadSize_Y<etrocSize_Y*2.+etrocSep_Y){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: LGAD Y size < ETROC Y size x 2 + ETROC Y separation!" << G4endl;
+    assert(0);
+  }
+  if (baseplateSize_X<lgadSize_X*2.+lgadSep_X){
+    G4cerr << "ETLDetectorDimensions::setETLTwoSensorModuleDimensions: Base plate X size < LGAD X size x 2 + LGAD X separation!" << G4endl;
+    assert(0);
+  }
 
   // Solder bumps
   detname = detbase + "_SolderBumps";
   double bumpsSize_X = lgadSize_X;
-  double bumpsSize_Y = etrocSize_Y*2.;
+  double bumpsSize_Y = etrocSize_Y;
   double bumpsSize_Z = 0.03*mm;
+  double bumpsSep_X = lgadSep_X;
+  double bumpsSep_Y = etrocSep_Y;
   dimension_map[detname+"_X"] = bumpsSize_X;
   dimension_map[detname+"_Y"] = bumpsSize_Y;
   dimension_map[detname+"_Z"] = bumpsSize_Z;
+  dimension_map[detname+"_Sep_X"] = bumpsSep_X;
+  dimension_map[detname+"_Sep_Y"] = bumpsSep_Y;
 
   // Epoxy betwen sensor and AlN cover
   detname = detbase + "_EpoxyCover";
   double epoxySize_X = lgadSize_X;
   double epoxySize_Y = lgadSize_Y;
   double epoxySize_Z = 0.08*mm;
+  double epoxySep_X = lgadSep_X;
   dimension_map[detname+"_X"] = epoxySize_X;
   dimension_map[detname+"_Y"] = epoxySize_Y;
   dimension_map[detname+"_Z"] = epoxySize_Z;
+  dimension_map[detname+"_Sep_X"] = epoxySep_X;
 
   // AlN sensor cover
   detname = detbase + "_CoverPlate";
-  double coverplateSize_X = lgadSize_X; // Slightly wrong, should be slightly longer
+  double coverplateSize_X = lgadSize_X; // FIXME: Slightly wrong, should be slightly longer
   double coverplateSize_Y = lgadSize_Y;
   double coverplateSize_Z = 0.51*mm;
+  double coverplateSep_X = lgadSep_X; // FIXME: Separation is different from LGADs based on Fig. 3.73
   dimension_map[detname+"_X"] = coverplateSize_X;
   dimension_map[detname+"_Y"] = coverplateSize_Y;
   dimension_map[detname+"_Z"] = coverplateSize_Z;
+  dimension_map[detname+"_Sep_X"] = coverplateSep_X;
 
   // All of the module
   detname = detbase;
@@ -228,47 +289,47 @@ void ETLDetectorDimensions::setETLSensorServiceHybridDimensions(int const& nSens
   string const detbase = "ETL" + std::to_string(2*nSensorsPerSide) + "SensorServiceHybrid";
   string detname;
 
-  double servicehybridSize_X = 34*mm;
-  double servicehybridSize_Y = 43.1*((double) nSensorsPerSide)*mm + ((double) (nSensorsPerSide-1))*getDimension("ETLOffset_Module_Module_dY");
+  const double servicehybridSize_X = 34*mm;
+  const double servicehybridSize_Y = 43.1*((double) nSensorsPerSide)*mm + ((double) (nSensorsPerSide-1))*getDimension("ETLOffset_Module_Module_dY");
 
   // Thermal pad
   detname = detbase + "_ThermalPad";
-  double thermalpadSize_X = servicehybridSize_X;
-  double thermalpadSize_Y = servicehybridSize_Y;
-  double thermalpadSize_Z = 0.25*mm;
+  const double thermalpadSize_X = servicehybridSize_X;
+  const double thermalpadSize_Y = servicehybridSize_Y;
+  const double thermalpadSize_Z = 0.25*mm;
   dimension_map[detname+"_X"] = thermalpadSize_X;
   dimension_map[detname+"_Y"] = thermalpadSize_Y;
   dimension_map[detname+"_Z"] = thermalpadSize_Z;
 
   // Readout board
   detname = detbase + "_ReadoutBoard";
-  double readoutboardSize_X = servicehybridSize_X;
-  double readoutboardSize_Y = servicehybridSize_Y;
-  double readoutboardSize_Z = 1.*mm;
+  const double readoutboardSize_X = servicehybridSize_X;
+  const double readoutboardSize_Y = servicehybridSize_Y;
+  const double readoutboardSize_Z = 1.*mm;
   dimension_map[detname+"_X"] = readoutboardSize_X;
   dimension_map[detname+"_Y"] = readoutboardSize_Y;
   dimension_map[detname+"_Z"] = readoutboardSize_Z;
 
   // Connectors/flex/stiffener
   detname = detbase + "_Connectors";
-  double connectorSize_X = servicehybridSize_X;
-  double connectorSize_Y = servicehybridSize_Y;
-  double connectorSize_Z = 1.5*mm;
+  const double connectorSize_X = servicehybridSize_X;
+  const double connectorSize_Y = servicehybridSize_Y;
+  const double connectorSize_Z = 1.5*mm;
   dimension_map[detname+"_X"] = connectorSize_X;
   dimension_map[detname+"_Y"] = connectorSize_Y;
   dimension_map[detname+"_Z"] = connectorSize_Z;
 
   // Power board
   detname = detbase + "_PowerBoard";
-  double powerboardSize_X = servicehybridSize_X;
-  double powerboardSize_Y = servicehybridSize_Y;
-  double powerboardSize_Z = 3.1*mm;
+  const double powerboardSize_X = servicehybridSize_X;
+  const double powerboardSize_Y = servicehybridSize_Y;
+  const double powerboardSize_Z = 3.1*mm;
   dimension_map[detname+"_X"] = powerboardSize_X;
   dimension_map[detname+"_Y"] = powerboardSize_Y;
   dimension_map[detname+"_Z"] = powerboardSize_Z;
 
   detname = detbase;
-  double servicehybridSize_Z = (thermalpadSize_Z+readoutboardSize_Z+connectorSize_Z+powerboardSize_Z);
+  const double servicehybridSize_Z = (thermalpadSize_Z+readoutboardSize_Z+connectorSize_Z+powerboardSize_Z);
   dimension_map[detname+"_X"] = servicehybridSize_X;
   dimension_map[detname+"_Y"] = servicehybridSize_Y;
   dimension_map[detname+"_Z"] = servicehybridSize_Z;
@@ -281,10 +342,25 @@ void ETLDetectorDimensions::setETLWedgeDimensions(){
   detname = detbase;
   const double wedge_rmin = 0.31*m;
   const double wedge_rmax = 1.27*m;
-  const double wedge_z = 18.94*mm;
+  const double wedge_MIC6Al_z = 6.35*mm;
+  const double wedge_Epoxy_z = 0.08*mm;
+  const double wedge_CoolingAl_z = 0.81*mm;
+  const double wedge_z = wedge_MIC6Al_z + wedge_Epoxy_z + wedge_CoolingAl_z;
+  const double wedge_fullz = wedge_z + 2.*std::max(std::max(getDimension("ETLOneSensorModule_Z"), getDimension("ETLTwoSensorModule_Z")), std::max(getDimension("ETL6SensorServiceHybrid_Z"), getDimension("ETL12SensorServiceHybrid_Z"))); // = 18.94 mm
   dimension_map[detname+"_Rmin"] = wedge_rmin;
   dimension_map[detname+"_Rmax"] = wedge_rmax;
-  dimension_map[detname+"_Z"] = wedge_z;
+  dimension_map[detname+"_MIC6Al_Z"] = wedge_MIC6Al_z;
+  dimension_map[detname+"_Epoxy_Z"] = wedge_Epoxy_z;
+  dimension_map[detname+"_CoolingAl_Z"] = wedge_CoolingAl_z;
+  dimension_map[detname+"_Z"] = wedge_z; // This is the z extent of the wedge components.
+  dimension_map[detname+"_FullZ"] = wedge_fullz; // This is the full z extent of the wedge including modules and service hybrids.
+
+  detname = detbase + "_CoolingPipe";
+  const double coolingpipe_rmin = 4.*mm/2.; // FIXME
+  const double coolingpipe_rmax = 4.2*mm/2.; // FIXME
+  dimension_map[detname+"_Rmin"] = coolingpipe_rmin;
+  dimension_map[detname+"_Rmax"] = coolingpipe_rmax;
+
 }
 void ETLDetectorDimensions::setETLOffsets(){
   // This function only handles inter-component spacing
@@ -307,5 +383,9 @@ void ETLDetectorDimensions::setETLOffsets(){
   detname = detbase + "_SensorServiceHybrid_SensorServiceHybrid_dY";
   const double sep_Y_servicehybrid_servicehybrid = sep_Y_module_module;
   dimension_map[detname] = sep_Y_servicehybrid_servicehybrid;
-}
 
+  // dZ between two disks
+  detname = detbase + "_Disks_dZ";
+  const double sep_Z_disks = 20.*mm;
+  dimension_map[detname] = sep_Z_disks;
+}
