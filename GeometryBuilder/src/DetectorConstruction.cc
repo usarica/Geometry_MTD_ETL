@@ -1232,21 +1232,33 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
   // Setup materials
   G4Material* world_mat = G4Material::GetMaterial("Vacuum");
-  G4Material* envelope_mat = G4Material::GetMaterial("Vacuum");
+  G4Material* diskBox_mat = G4Material::GetMaterial("Vacuum");
+  G4Material* wedgeEnclosure_mat = diskBox_mat;
+  G4Material* endcap_mat = diskBox_mat;
+  G4Material* wedge_attachment_mat = G4Material::GetMaterial("G4_Al");
   if (!world_mat){
     G4ExceptionDescription msg;
     msg << "Cannot retrieve world_mat.";
     G4Exception("DetectorConstruction::DefineVolumes",
                 "MyCode0001", FatalException, msg);
   }
-  if (!envelope_mat){
+  if (!diskBox_mat){
     G4ExceptionDescription msg;
-    msg << "Cannot retrieve envelope_mat.";
+    msg << "Cannot retrieve diskBox_mat.";
+    G4Exception("DetectorConstruction::DefineVolumes",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!wedge_attachment_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve wedge_attachment_mat.";
     G4Exception("DetectorConstruction::DefineVolumes",
                 "MyCode0001", FatalException, msg);
   }
 
   // Size parameters
+  string const det_etl = "MTD_ETL";
+  string const det_endcap = "ETLEndCap";
+  string const det_disk = "ETLDisk";
   string const det_offset = "ETLOffset";
   string const det_wedge = "ETLWedge";
   string const det_wedge_attachment = "ETLWedge_Attachment";
@@ -1310,18 +1322,14 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double sep_X_module_servicehybrid = getDimension(detname);
   detname = det_offset + "_Module_Module_dY";
   G4double sep_Y_module_module = getDimension(detname);
+  detname = det_offset + "_Module_WedgeAttachment_dX";
+  G4double sep_X_module_wedgeAttachment = getDimension(detname);
+  detname = det_offset + "_Module_WedgeAttachment_dY";
+  G4double sep_Y_module_wedgeAttachment = getDimension(detname);
   detname = det_offset + "_SensorServiceHybrid_SensorServiceHybrid_dY";
   G4double sep_Y_servicehybrid_servicehybrid = getDimension(detname);
-
-  // World parameters
-  G4double world_sizeX = wedge_Rmax*2.;
-  G4double world_sizeY = wedge_Rmax*2.;
-  G4double world_sizeZ = wedge_fullZ;
-
-  // Generic envelope parameters
-  G4double env_sizeX = world_sizeX;
-  G4double env_sizeY = world_sizeY;
-  G4double env_sizeZ = world_sizeZ;
+  detname = det_offset + "_Disks_dZ";
+  G4double sep_Z_disks = getDimension(detname);
 
 
   /******************/
@@ -1332,54 +1340,130 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   constexpr bool putServiceHybrids = true;
   constexpr bool putModules = true;
   constexpr bool putWedgeComponents = false;
-  constexpr bool doWedgeFrontFace = true;
-  constexpr bool doWedgeBackFace = false;
+  constexpr bool doWedgeFarFace = true;
+  constexpr bool doWedgeCloseFace = true;
+  constexpr bool doFullDisk = true;
+  constexpr bool doFarDisk = true;
+  constexpr bool doCloseDisk = true;
+
+  // Generic wedge box parameters
+  G4double diskBox_X = wedge_Rmax*2.;
+  G4double diskBox_Y = wedge_Rmax*2.;
+  G4double diskBox_Z = wedge_fullZ;
+
+  // Generic endcap parameters
+  G4double endcap_X = diskBox_X;
+  G4double endcap_Y = diskBox_Y;
+  G4double endcap_Z = diskBox_Z*2. + sep_Z_disks;
+
+  // World parameters
+  G4double world_X = endcap_X;
+  G4double world_Y = endcap_Y;
+  G4double world_Z = endcap_Z;
 
   // World
+  detname = det_etl;
   G4Box* solidWorld = new G4Box(
-    "World",
-    0.5*world_sizeX, 0.5*world_sizeY, 0.5*world_sizeZ
+    detname.c_str(),
+    world_X/2., world_Y/2., world_Z/2.
   );
   G4LogicalVolume* logicWorld = new G4LogicalVolume(
-    solidWorld,          //its solid
-    world_mat,           //its material
-    "World"              //its name
+    solidWorld,
+    world_mat,
+    detname.c_str()
   );
   G4VisAttributes* worldVisAttr = new G4VisAttributes(G4Colour::Black()); worldVisAttr->SetVisibility(false);
   logicWorld->SetVisAttributes(worldVisAttr);
   G4VPhysicalVolume* physWorld = new G4PVPlacement(
-    0,                     //no reflectionTransformation
-    G4ThreeVector(),       //at (0,0,0)
-    logicWorld,            //its logical volume
-    "World",               //its name
-    0,                     //its mother  volume
-    false,                 //no boolean operation
-    0,                     //copy number
-    fCheckOverlaps         //overlaps checking
+    nullptr,
+    G4ThreeVector(),
+    logicWorld,
+    detname.c_str(),
+    nullptr,
+    false,
+    0,
+    fCheckOverlaps
   );
 
-  // Envelope
-  G4Box* solidEnvelope = new G4Box(
-    "Envelope",
-    0.5*env_sizeX, 0.5*env_sizeY, 0.5*env_sizeZ
+  // The box enclosure of a disk
+  detname = det_endcap;
+  G4Box* solidEndcap = new G4Box(
+    detname.c_str(),
+    endcap_X/2., endcap_Y/2., endcap_Z/2.
   );
-  G4LogicalVolume* logicEnvelope = new G4LogicalVolume(
-    solidEnvelope,          //its solid
-    envelope_mat,           //its material
-    "Envelope"              //its name
+  G4LogicalVolume* logicEndcap = new G4LogicalVolume(
+    solidEndcap,
+    endcap_mat,
+    detname.c_str()
   );
-  G4VisAttributes* envVisAttr = new G4VisAttributes(G4Colour::Black()); envVisAttr->SetVisibility(false);
-  logicEnvelope->SetVisAttributes(envVisAttr);
+  G4VisAttributes* endcapVisAttr = new G4VisAttributes(G4Colour::Black()); endcapVisAttr->SetVisibility(false);
+  logicEndcap->SetVisAttributes(endcapVisAttr);
   new G4PVPlacement(
-    0,                       //no reflectionTransformation
-    G4ThreeVector(),         //at (0,0,0)
-    logicEnvelope,           //its logical volume
-    "Envelope",              //its name
-    logicWorld,              //its mother  volume
-    false,                   //no boolean operation
-    0,                       //copy number
-    fCheckOverlaps           //overlaps checking
+    nullptr,
+    G4ThreeVector(),
+    logicEndcap,
+    detname.c_str(),
+    logicWorld,
+    false,
+    0,
+    fCheckOverlaps
   );
+  detector_components[detname] = BasicDetectorAttributes(solidEndcap, logicEndcap, endcap_mat, endcapVisAttr);
+
+  // The box enclosure of a disk
+  detname = det_disk;
+  G4Box* solidDiskBox = new G4Box(
+    detname.c_str(),
+    diskBox_X/2., diskBox_Y/2., diskBox_Z/2.
+  );
+  G4LogicalVolume* logicDiskContainer = new G4LogicalVolume(
+    solidDiskBox,
+    diskBox_mat,
+    (detname+"_Container").c_str()
+  );
+  G4LogicalVolume* logicDiskBox = new G4LogicalVolume(
+    solidDiskBox,
+    diskBox_mat,
+    detname.c_str()
+  );
+  G4VisAttributes* diskBoxVisAttr = new G4VisAttributes(G4Colour::Black()); diskBoxVisAttr->SetVisibility(false);
+  logicDiskContainer->SetVisAttributes(diskBoxVisAttr);
+  logicDiskBox->SetVisAttributes(diskBoxVisAttr);
+  if (doFarDisk) new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(0, 0, (endcap_Z-diskBox_Z)/2.),
+    logicDiskContainer,
+    (detname+"_Far").c_str(),
+    logicEndcap,
+    false,
+    0,
+    fCheckOverlaps
+  );
+  if (doCloseDisk){
+    G4RotationMatrix* reflectionDisk = new G4RotationMatrix; reflectionDisk->rotateY(M_PI*rad);
+    new G4PVPlacement(
+      reflectionDisk,
+      G4ThreeVector(0, 0, -(endcap_Z-diskBox_Z)/2.),
+      logicDiskContainer,
+      (detname+"_Close").c_str(),
+      logicEndcap,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+  new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(),
+    logicDiskBox,
+    (detname+"_Box").c_str(),
+    logicDiskContainer,
+    false,
+    0,
+    fCheckOverlaps
+  );
+  detector_components[detname] = BasicDetectorAttributes(solidDiskBox, logicDiskContainer, diskBox_mat, diskBoxVisAttr);
+  detector_components[detname] = BasicDetectorAttributes(solidDiskBox, logicDiskBox, diskBox_mat, diskBoxVisAttr);
 
   // Wedge
   detname = det_wedge;
@@ -1389,21 +1473,28 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   );
   G4LogicalVolume* logicWedge = new G4LogicalVolume(
     solidWedge,
-    envelope_mat, // Notice here that the material defined is the dummy envelope material, not the actual materials for the wedge components
+    wedgeEnclosure_mat, // Notice here that the material defined is the dummy disk box material, not the actual materials for the wedge components
     detname.c_str()
   );
   G4VisAttributes* wedgeVisAttr = new G4VisAttributes(G4Colour::Black()); wedgeVisAttr->SetVisibility(false); // The wedge object should not be visible
   logicWedge->SetVisAttributes(wedgeVisAttr);
-  new G4PVPlacement(
-    0,                       //no reflectionTransformation
-    G4ThreeVector(),         //at (0,0,0)
-    logicWedge,                //its logical volume
-    detname.c_str(),              //its name
-    logicEnvelope,              //its mother  volume
-    false,                   //no boolean operation
-    0,                       //copy number
-    fCheckOverlaps           //overlaps checking
+  if (!doFullDisk) new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(),
+    logicWedge,
+    detname.c_str(),
+    logicDiskBox,
+    false,
+    0,
+    fCheckOverlaps
   );
+  else new G4PVReplica(
+    detname.c_str(),
+    logicWedge,
+    logicDiskBox,
+    kPhi, 4, M_PI*rad/2., -M_PI*rad/4.
+  );
+  detector_components[detname] = BasicDetectorAttributes(solidWedge, logicWedge, wedgeEnclosure_mat, diskBoxVisAttr);
 
 
   // Variables for the construction of service hybrids and the modules
@@ -1414,7 +1505,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double wedge_yposmax;
   G4double wedge_Roffset;
   G4RotationMatrix* reflectionTransformation;
-  G4RotationMatrix* reflectionAndSideSwapTransformation = new G4RotationMatrix; reflectionAndSideSwapTransformation->rotateZ(M_PI*rad);
+  G4RotationMatrix* reflectionAndSideSwapTransformation = new G4RotationMatrix;
   std::vector<std::pair<G4double, G4double>> coolingpipes_xpos_ymin;
   std::vector<std::pair<G4double, G4double>> sensorhybrid_yminmax;
   std::vector<G4double> sensorhybrid_xpos;
@@ -1429,19 +1520,20 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /*****************************************/
   wedge_Roffset=0;
   ix_module=ix_service=0;
-  reflectionTransformation=nullptr;
+  reflectionTransformation = nullptr;
+  reflectionAndSideSwapTransformation = new G4RotationMatrix; reflectionAndSideSwapTransformation->rotateZ(M_PI*rad);
 
   // Place service hybrids first
-  wedge_xpos = wedge_frontface_sensor_Offset_X + onesensor_X + sep_X_module_servicehybrid + servicehybrid6_X/2.;
+  wedge_xpos = wedge_frontface_sensor_Offset_X + sep_X_module_wedgeAttachment + onesensor_X + sep_X_module_servicehybrid + servicehybrid6_X/2.;
   // Calculate yposmin:
   // Depends on how many modules will fit as well
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
   {
-    G4double nmodules_d = (wedge_yposmin - wedge_frontface_sensor_Offset_Y) / onesensor_Y;
+    G4double nmodules_d = (wedge_yposmin - wedge_frontface_sensor_Offset_Y - sep_Y_module_wedgeAttachment) / onesensor_Y;
     G4int nmodules_i = std::ceil(nmodules_d);
-    wedge_yposmin = (G4double) nmodules_i * onesensor_Y + wedge_frontface_sensor_Offset_Y;
+    wedge_yposmin = (G4double) nmodules_i * onesensor_Y + wedge_frontface_sensor_Offset_Y + sep_Y_module_wedgeAttachment;
   }
-  while (doWedgeFrontFace){ // Loop over columns
+  while (doWedgeFarFace){ // Loop over columns
     sensorhybrid_xpos.push_back(wedge_xpos);
     coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
 
@@ -1545,7 +1637,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   moduleSensorHybridConnection_xpos_cend = sensorhybrid_xpos.cend();
   moduleSensorHybridConnection_xpos_left = moduleSensorHybridConnection_xpos_cend;
   moduleSensorHybridConnection_xpos_right = sensorhybrid_xpos.cbegin();
-  while (doWedgeFrontFace){ // Loop over columns
+  while (doWedgeFarFace){ // Loop over columns
     if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend){
       wedge_yposmin = std::min(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
       wedge_yposmax = std::max(moduleSensorHybridConnection_yminmax_left->second, moduleSensorHybridConnection_yminmax_right->second);
@@ -1641,7 +1733,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
         if (putModules) BuildOneSensorModule(
-          logicWedge, (firstColumn_OneSensorModule || placeRightFlankedOneSensorModule ? reflectionTransformation : reflectionAndSideSwapTransformation), relpos
+          logicWedge, ((firstColumn_OneSensorModule || placeRightFlankedOneSensorModule) ? reflectionTransformation : reflectionAndSideSwapTransformation), relpos
         );
 
         wedge_ypos += onesensor_Y/2.;
@@ -1699,7 +1791,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Place service hybrids first
   wedge_xpos = servicehybrid6_X/2.;
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
-  while (doWedgeBackFace){ // Loop over columns
+  while (doWedgeCloseFace){ // Loop over columns
     sensorhybrid_xpos.push_back(wedge_xpos);
 
     wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + servicehybrid6_X/2., 2)));
@@ -1804,7 +1896,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   moduleSensorHybridConnection_xpos_left = sensorhybrid_xpos.cbegin();
   moduleSensorHybridConnection_xpos_right = moduleSensorHybridConnection_xpos_left+1;
   wedge_xpos = servicehybrid6_X + sep_X_module_servicehybrid + twosensor_X/2.;
-  while (doWedgeBackFace){ // Loop over columns
+  while (doWedgeCloseFace){ // Loop over columns
     if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend){
       wedge_yposmin = std::min(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
       wedge_yposmax = std::max(moduleSensorHybridConnection_yminmax_left->second, moduleSensorHybridConnection_yminmax_right->second);
@@ -1895,7 +1987,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         G4cout << "\t- Placing one sensor modules of sizes (" << onesensor_X << "," << onesensor_Y << "," << onesensor_Z << ") at position (" << relpos.x() << "," << relpos.y() << "," << relpos.z() << ")" << G4endl;
         // Construct the module
         if (putModules) BuildOneSensorModule(
-          logicWedge, (lastColumn_OneSensorModule || placeLeftFlankedOneSensorModule ? reflectionTransformation : reflectionAndSideSwapTransformation), relpos
+          logicWedge, ((lastColumn_OneSensorModule || placeLeftFlankedOneSensorModule) ? reflectionTransformation : reflectionAndSideSwapTransformation), relpos
         );
 
         wedge_ypos += onesensor_Y/2.;
@@ -1943,6 +2035,82 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /**********************************/
   /**********************************/
   if (putWedgeComponents) BuildWedgeComponents(logicWedge, coolingpipes_xpos_ymin);
+
+  // Throws the following exception:
+  /*
+  Checking overlaps for volume ETLWedge_Attachment_Container ...
+  -------- WWWW ------- G4Exception-START -------- WWWW -------
+  *** G4Exception : GeomVol1002
+  issued by : G4PVPlacement::CheckOverlaps()
+  Overlap with volume already placed !
+  Overlap is detected for volume ETLWedge_Attachment_Container
+  with ETLDisk_Box volume's
+  local point (1205.65,-12.0241,4.62), overlapping by at least: 4.85 mm
+  NOTE: Reached maximum fixed number -1- of overlaps reports for this volume !
+  *** This is just a warning message. ***
+  -------- WWWW -------- G4Exception-END --------- WWWW -------
+  */
+  /*
+  if (putWedgeComponents || doWedgeFarFace){
+    detname = det_wedge_attachment+"_Container";
+    G4Box* solidWedgeAttachment = new G4Box(
+      detname.c_str(),
+      wedge_attachment_X/2., wedge_attachment_Y/2., wedge_attachment_Z/2.
+    );
+    G4LogicalVolume* logicWedgeAttachment = new G4LogicalVolume(
+      solidWedgeAttachment,
+      wedge_attachment_mat,
+      detname.c_str()
+    );
+    G4VisAttributes* wedgeAttachmentVisAttr = new G4VisAttributes(G4Colour::Gray()); wedgeAttachmentVisAttr->SetVisibility(true);
+    logicWedgeAttachment->SetVisAttributes(wedgeAttachmentVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector((wedge_attachment_X/2.+wedge_Rmin), wedge_attachment_Offset_Y, (wedge_Z+wedge_attachment_Z)/2.),
+      logicWedgeAttachment,
+      detname.c_str(),
+      logicDiskContainer,
+      false,
+      0,
+      fCheckOverlaps
+    );
+    if (doFullDisk){
+      new G4PVPlacement(
+        nullptr,
+        G4ThreeVector(-(wedge_attachment_X/2.+wedge_Rmin), -wedge_attachment_Offset_Y, (wedge_Z+wedge_attachment_Z)/2.),
+        logicWedgeAttachment,
+        detname.c_str(),
+        logicDiskContainer,
+        false,
+        1,
+        fCheckOverlaps
+      );
+      G4RotationMatrix* tr = new G4RotationMatrix; tr->rotateZ(M_PI/2.*rad);
+      new G4PVPlacement(
+        tr,
+        G4ThreeVector(-wedge_attachment_Offset_Y, (wedge_attachment_X/2.+wedge_Rmin), (wedge_Z+wedge_attachment_Z)/2.),
+        logicWedgeAttachment,
+        detname.c_str(),
+        logicDiskContainer,
+        false,
+        2,
+        fCheckOverlaps
+      );
+      new G4PVPlacement(
+        tr,
+        G4ThreeVector(+wedge_attachment_Offset_Y, -(wedge_attachment_X/2.+wedge_Rmin), (wedge_Z+wedge_attachment_Z)/2.),
+        logicWedgeAttachment,
+        detname.c_str(),
+        logicDiskContainer,
+        false,
+        3,
+        fCheckOverlaps
+      );
+    }
+    */
+
+    detector_components[detname] = BasicDetectorAttributes(solidWedgeAttachment, logicWedgeAttachment, wedge_attachment_mat, wedgeAttachmentVisAttr);
+  }
 
 
   fScoringVolume = logicWedge;

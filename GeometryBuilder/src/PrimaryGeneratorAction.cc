@@ -38,6 +38,7 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event* theEvent){
   G4double envSizeXY = 0;
   G4double envSizeZ = 0;
 
+  /*
   if (!fEnvelopeBox){
     G4LogicalVolume* envLV = G4LogicalVolumeStore::GetInstance()->GetVolume("Envelope");
     if (envLV) fEnvelopeBox = dynamic_cast<G4Box*>(envLV->GetSolid());
@@ -51,12 +52,13 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event* theEvent){
     G4ExceptionDescription msg;
     msg << "Envelope volume of box shape not found.\n";
     msg << "Perhaps you have changed geometry.\n";
-    msg << "The gun will be place at the center.";
+    msg << "The gun will be placed at the center.";
     G4Exception(
       "PrimaryGeneratorAction::GeneratePrimaries()",
       "MyCode0002", JustWarning, msg
     );
   }
+  */
 
   G4double size = 0.8;
   G4double x0 = size * envSizeXY * (G4UniformRand()-0.5);

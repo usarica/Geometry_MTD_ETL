@@ -391,6 +391,16 @@ void ETLDetectorDimensions::setETLOffsets(){
   const double sep_Y_module_module = 0.5*mm;
   dimension_map[detname] = sep_Y_module_module;
 
+  // dX between first module and wedge attachment
+  detname = detbase + "_Module_WedgeAttachment_dX";
+  const double sep_X_module_wedgeAttachment = sep_Y_module_module;
+  dimension_map[detname] = sep_X_module_wedgeAttachment;
+
+  // dY between first module and wedge attachment
+  detname = detbase + "_Module_WedgeAttachment_dY";
+  const double sep_Y_module_wedgeAttachment = sep_Y_module_module;
+  dimension_map[detname] = sep_Y_module_wedgeAttachment;
+
   // dY between any service hybrid
   detname = detbase + "_SensorServiceHybrid_SensorServiceHybrid_dY";
   const double sep_Y_servicehybrid_servicehybrid = sep_Y_module_module;
