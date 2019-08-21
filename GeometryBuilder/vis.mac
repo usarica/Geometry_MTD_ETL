@@ -32,7 +32,7 @@
 #
 # Specify view angle:
 /vis/viewer/set/viewpointVector -1 0 0
-/vis/viewer/set/lightsVector -1 0 0
+/vis/viewer/set/lightsVector 1 0 1
 #
 # Specify style (surface, wireframe, auxiliary edges,...)
 /vis/viewer/set/style wireframe
@@ -71,9 +71,9 @@
 #
 # Decorations
 # Name
-/vis/set/textColour green
-/vis/set/textLayout right
-/vis/scene/add/text2D 0.9 -.9 24 ! ! basicBlocks
+#/vis/set/textColour green
+#/vis/set/textLayout right
+#/vis/scene/add/text2D 0.9 -.9 24 ! ! basicBlocks
 # or, if your system does not support right-adjustment
 #/vis/scene/add/text2D 0 -.9 24 ! ! basicBlocks
 /vis/set/textLayout    # Revert to normal (left adjusted) layout
@@ -81,11 +81,11 @@
 #
 # Axes, scale, etc.
 /vis/scene/add/scale   # Simple scale line
-/vis/scene/add/axes    # Simple axes: x=red, y=green, z=blue.
+#/vis/scene/add/axes    # Simple axes: x=red, y=green, z=blue.
 /vis/scene/add/eventID # Drawn at end of event
-/vis/scene/add/date    # Date stamp
-/vis/scene/add/logo2D  # Simple logo
-/vis/scene/add/logo    # 3D logo
+#/vis/scene/add/date    # Date stamp
+#/vis/scene/add/logo2D  # Simple logo
+#/vis/scene/add/logo    # 3D logo
 #
 # Frame
 /vis/set/colour red
@@ -94,19 +94,11 @@
 /vis/set/colour        # Revert to default colour (white)
 /vis/set/lineWidth     # Revert to default line width (1.)
 #
-# Attach text to one edge of Shape1, with a small, fixed offset
-/vis/scene/add/text 0 6 -4 cm 18 4 4 Shape1
-# Attach text to one corner of Shape2, with a small, fixed offset
-/vis/scene/add/text 6 7 10 cm 18 4 4 Shape2
-#
 # To get nice view
-# Make the "World" box invisible
-/vis/geometry/set/visibility World 0 false
-# "Envelope" is transparent blue to represent water
-/vis/geometry/set/colour Envelope 0 0 0 1 .3
+/vis/viewer/set/picking false
 /vis/viewer/set/style surface
 /vis/viewer/set/hiddenMarker true
-/vis/viewer/set/viewpointThetaPhi 120 150
+/vis/viewer/set/viewpointThetaPhi 60 150
 #
 # Re-establish auto refreshing and verbosity:
 /vis/viewer/set/autoRefresh true
