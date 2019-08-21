@@ -1232,7 +1232,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
   // Setup materials
   G4Material* world_mat = G4Material::GetMaterial("Vacuum");
-  G4Material* diskBox_mat = G4Material::GetMaterial("Vacuum");
+  G4Material* diskBox_mat = world_mat;
   G4Material* wedgeEnclosure_mat = diskBox_mat;
   G4Material* endcap_mat = diskBox_mat;
   G4Material* wedge_attachment_mat = G4Material::GetMaterial("G4_Al");
@@ -1493,17 +1493,8 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     detname.c_str()
   );
   logicWedgePassive->SetVisAttributes(wedgeVisAttr);
-  new G4PVPlacement(
-    nullptr,
-    G4ThreeVector(),
-    logicWedgePassive,
-    detname.c_str(),
-    logicWedge,
-    false,
-    0,
-    fCheckOverlaps
-  );
   detector_components[detname] = BasicDetectorAttributes(solidWedgePassive, logicWedgePassive, wedgeEnclosure_mat, wedgeVisAttr);
+  // Defer the placement of the passive material
 
   // Wedge active material
   detname = det_wedge+"_ActiveMaterial";
@@ -1517,16 +1508,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     (detname+"_Far").c_str()
   );
   logicWedgeActive_Far->SetVisAttributes(wedgeVisAttr);
-  new G4PVPlacement(
-    nullptr,
-    G4ThreeVector(0, 0, (wedge_fullZ+wedge_Z)/4.),
-    logicWedgeActive_Far,
-    (detname+"_Far").c_str(),
-    logicWedge,
-    false,
-    0,
-    fCheckOverlaps
-  );
   detector_components[(detname+"_Far")] = BasicDetectorAttributes(solidWedgeActive, logicWedgeActive_Far, wedgeEnclosure_mat, wedgeVisAttr);
   G4LogicalVolume* logicWedgeActive_Close = new G4LogicalVolume(
     solidWedgeActive,
@@ -1534,18 +1515,8 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     (detname+"_Close").c_str()
   );
   logicWedgeActive_Close->SetVisAttributes(wedgeVisAttr);
-  new G4PVPlacement(
-    nullptr,
-    G4ThreeVector(0, 0, -(wedge_fullZ+wedge_Z)/4.),
-    logicWedgeActive_Close,
-    (detname+"_Close").c_str(),
-    logicWedge,
-    false,
-    0,
-    fCheckOverlaps
-  );
   detector_components[(detname+"_Close")] = BasicDetectorAttributes(solidWedgeActive, logicWedgeActive_Close, wedgeEnclosure_mat, wedgeVisAttr);
-
+  // Defer the placement of the active material
 
   // Variables for the construction of service hybrids and the modules
   size_t ix_module, ix_service;
@@ -2086,7 +2057,41 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /**********************************/
   if (putWedgeComponents) BuildWedgeComponents(logicWedgePassive, coolingpipes_xpos_ymin);
 
-  // Now draw the disks
+  // Place the passive material
+  detname = det_wedge+"_PassiveMaterial";
+  new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(),
+    logicWedgePassive,
+    detname.c_str(),
+    logicWedge,
+    false,
+    0,
+    fCheckOverlaps
+  );
+  // Place the active material
+  detname = det_wedge+"_ActiveMaterial";
+  new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(0, 0, -(wedge_fullZ+wedge_Z)/4.),
+    logicWedgeActive_Close,
+    (detname+"_Close").c_str(),
+    logicWedge,
+    false,
+    0,
+    fCheckOverlaps
+  );
+  new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(0, 0, +(wedge_fullZ+wedge_Z)/4.),
+    logicWedgeActive_Far,
+    (detname+"_Far").c_str(),
+    logicWedge,
+    false,
+    0,
+    fCheckOverlaps
+  );
+  // Place the disks
   detname = det_disk;
   if (doCloseDisk){
     G4RotationMatrix* reflectionDisk = new G4RotationMatrix; reflectionDisk->rotateY(M_PI*rad);
@@ -2097,7 +2102,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
       (detname+"_Close").c_str(),
       logicEndcap,
       false,
-      1,
+      0,
       fCheckOverlaps
     );
   }
