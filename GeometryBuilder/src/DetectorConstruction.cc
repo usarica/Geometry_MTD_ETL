@@ -985,6 +985,7 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
   string const detbase = "ETLWedge";
   string detname;
 
+  G4Material* empty_mat = G4Material::GetMaterial("Vacuum");
   G4Material* Epoxy_mat = G4Material::GetMaterial("Epoxy");
   G4Material* MIC6Al_mat = G4Material::GetMaterial("MIC6_Al");
   G4Material* CoolingAl_mat = G4Material::GetMaterial("G4_Al");
@@ -1036,73 +1037,91 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
   detname = detbase + "_CoolingPipe";
   G4double coolingpipe_Rmin = getDimension(detname+"_Rmin");
   G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
-  constexpr bool drillCoolingPipeCavities = false;
-  constexpr bool addCoolingPipes = false && drillCoolingPipeCavities;
+  constexpr bool drillCoolingPipeCavities = true;
+  constexpr bool addCoolingPipes = true && drillCoolingPipeCavities;
+
+  G4double wedge_Rmax_dXOverflow = coolingpipe_Rmax*2.;
+  G4double wedge_RSqOverflow = wedge_Rmax_dXOverflow*(wedge_Rmax*2.-wedge_Rmax_dXOverflow);
+  G4double wedge_Renclosing = std::sqrt(std::pow(wedge_Rmax, 2)+wedge_RSqOverflow);
 
   // MIC6 Al
+  G4LogicalVolume* logicMIC6AlEnclosing = nullptr;
   if (addMIC6Al){
     detname = detbase + "_MIC6Al";
+    G4VisAttributes* MIC6AlBaseVisAttr = new G4VisAttributes(G4Colour::Black()); MIC6AlBaseVisAttr->SetVisibility(false);
+
+    G4Tubs* solidMIC6AlEnclosing = new G4Tubs(
+      (detname+"_Enclosing").c_str(),
+      wedge_Rmin, wedge_Renclosing, wedge_MIC6Al_Z/2., 0, 90.*degree
+    );
+    logicMIC6AlEnclosing = new G4LogicalVolume(
+      solidMIC6AlEnclosing,
+      empty_mat,
+      (detname+"_Enclosing").c_str()
+    );
+    logicMIC6AlEnclosing->SetVisAttributes(MIC6AlBaseVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector(0, 0, (-wedge_Z+wedge_MIC6Al_Z)/2.),
+      logicMIC6AlEnclosing,
+      (detname+"_Enclosing").c_str(),
+      motherLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+
+    G4Tubs* solidMIC6AlBase = new G4Tubs(
+      (detname+"_Base").c_str(),
+      wedge_Rmin, wedge_Rmax, wedge_MIC6Al_Z/2., 0, 90.*degree
+    );
     G4VSolid* solidMIC6Al = nullptr;
     // The cooling pipes are embedded in the MIC6 Al, so the solid construction involves drilling pipes :(
     if (drillCoolingPipeCavities){
       // Begin construction of the complex solidMIC6Al solid
-      G4Tubs* solidMIC6AlBase = new G4Tubs(
-        (detname+"Base").c_str(),
-        wedge_Rmin, wedge_Rmax, wedge_MIC6Al_Z/2., 0, 90.*degree
-      );
       std::vector<G4Box*> boxes;
       std::vector<G4Tubs*> tubes;
-      std::vector<G4UnionSolid*> box_tubes;
-      std::vector<G4SubtractionSolid*> subtractedWedges;
+      std::vector<G4VSolid*> subtractedWedges; subtractedWedges.push_back(solidMIC6AlBase);
+
+      G4double ldy = coolingpipe_Rmax;
+      G4double ldx = 2.*ldy;
+      G4RotationMatrix rotm; rotm.rotateX(-M_PI/2.*rad);
+
       for (std::pair<G4double, G4double> const& xpos_ymin:coolingpipes_xpos_ymin){
         G4double const& xpos = xpos_ymin.first;
         G4double const& ymin = xpos_ymin.second;
-        G4double ymax = std::sqrt(std::pow(wedge_Rmax, 2) - std::pow(xpos_ymin.first, 2));
-        G4cout << "Placing a pipe cavity at x = " << xpos_ymin.first << " with y min/max = " << ymin << " / " << ymax << G4endl;
-
-        G4double ldy = coolingpipe_Rmax;
-        G4double ldx = 2.*ldy;
+        //G4double ymax = std::sqrt(std::pow(wedge_Rmax, 2) - std::pow(xpos_ymin.first, 2));
+        G4double const& ymax = wedge_Rmax;
         G4double ldz = ymax - ymin;
-        G4Box* theBox = new G4Box((detname+"_ConstituentBox").c_str(), ldx/2., ldy/2., ldz/2.); // dy and dz will be swapped after rotation
-        G4Tubs* theTube = new G4Tubs((detname+"_ConstituentTube").c_str(), G4double(0.), ldy, ldz/2., M_PI*rad, M_PI*rad*2.);
-        G4cout << "\t- Box dimensions: (x,y,z) = ( " << ldx << ", " << ldy << ", " << ldz << " )" << G4endl;
-        G4cout << "\t- Tube dimensions: (r,phi,z) = ( " << ldy << ", " << M_PI*rad*2. << ", " << ldz << " )" << G4endl;
+        G4cout << "Placing a pipe cavity at x = " << xpos_ymin.first << " with y min/max = " << ymin << " / " << ymax << G4endl;
+        G4VSolid* subtractionSolid = nullptr;
+
+        //G4Box* theBox = new G4Box((detname+"_ConstituentBox").c_str(), ldx/2., ldy/2., ldz/2.); // dy and dz will be swapped after rotation
+        G4Box* theBox = new G4Box((detname+"_ConstituentBox").c_str(), ldx/2., ldx/2., ldz/2.); // dy and dz will be swapped after rotation
+        G4cout << "\t- Box dimensions: (x,y,z) = ( " << ldx << ", " << ldx << ", " << ldz << " )" << G4endl;
         boxes.push_back(theBox);
-        tubes.push_back(theTube);
+        //G4ThreeVector relpos_box(xpos, ymin+ldz/2., wedge_MIC6Al_Z/2.-ldy/2.);
+        G4ThreeVector relpos_box(xpos, ymin+ldz/2., wedge_MIC6Al_Z/2.-ldx/2.);
+        G4Transform3D rot_trans_box(rotm, relpos_box);
+        subtractionSolid = new G4SubtractionSolid(detname, subtractedWedges.back(), theBox, rot_trans_box);
+        subtractedWedges.push_back(subtractionSolid);
 
         /*
-        G4Transform3D local_trans_tube(G4RotationMatrix(), G4ThreeVector(G4double(0), ldy/2., G4double(0)));
-        G4UnionSolid* theTubeAndBox = new G4UnionSolid((detname+"_ConstituentTubeAndBox").c_str(), theTube, theBox, local_trans_tube);
-        box_tubes.push_back(theTubeAndBox);
-
-        G4RotationMatrix rotm; rotm.rotateX(M_PI/2.*rad);
-        G4ThreeVector relpos_tube(xpos, ymin, wedge_MIC6Al_Z/2.-ldy);
+        G4Tubs* theTube = new G4Tubs((detname+"_ConstituentTube").c_str(), G4double(0.), ldy, ldz/2., 0, M_PI*rad*2.);
+        G4cout << "\t- Tube dimensions: (r,phi,z) = ( " << ldy << ", " << M_PI*rad*2. << ", " << ldz << " )" << G4endl;
+        tubes.push_back(theTube);
+        G4ThreeVector relpos_tube(xpos, ymin+ldz/2., wedge_MIC6Al_Z/2.-ldy);
         G4Transform3D rot_trans_tube(rotm, relpos_tube);
-
-        G4IntersectionSolid* intersectionSolid = new G4IntersectionSolid((detname+"_ConstituentTubeAndBox").c_str(), solidMIC6AlBase, theTubeAndBox, rot_trans_tube);
-        G4SubtractionSolid* subtractionSolid = new G4SubtractionSolid(detname, (subtractedWedges.empty() ? (G4VSolid*) solidMIC6AlBase : (G4VSolid*) subtractedWedges.back()), intersectionSolid);
-
+        subtractionSolid = new G4SubtractionSolid(detname, subtractedWedges.back(), theTube, rot_trans_tube);
         subtractedWedges.push_back(subtractionSolid);
         */
-        G4RotationMatrix rotm; rotm.rotateX(M_PI/2.*rad);
-        G4ThreeVector relpos_tube(xpos, ymin, wedge_MIC6Al_Z/2.-ldy);
-        G4ThreeVector relpos_box(xpos, ymin, wedge_MIC6Al_Z/2.-ldy/2.);
-        G4Transform3D rot_trans_tube(rotm, relpos_tube);
-        G4Transform3D rot_trans_box(rotm, relpos_box);
-        G4SubtractionSolid* subtractionSolid = new G4SubtractionSolid(detname, (subtractedWedges.empty() ? (G4VSolid*) solidMIC6AlBase : (G4VSolid*) subtractedWedges.back()), theTube, rot_trans_tube);
-        subtractedWedges.push_back(subtractionSolid);
-        subtractionSolid = new G4SubtractionSolid(detname, (subtractedWedges.empty() ? (G4VSolid*) solidMIC6AlBase : (G4VSolid*) subtractedWedges.back()), theBox, rot_trans_box);
-        subtractedWedges.push_back(subtractionSolid);
       }
       solidMIC6Al = subtractedWedges.back();
       // End construction of the complex solidMIC6Al solid
     }
     else{
       // Begin construction of the basic solidMIC6Al solid
-      solidMIC6Al = new G4Tubs(
-        detname.c_str(),
-        wedge_Rmin, wedge_Rmax, wedge_MIC6Al_Z/2., 0, 90.*degree
-      );
+      solidMIC6Al = solidMIC6AlBase;
       // End construction of the basic solidMIC6Al solid
     }
     G4LogicalVolume* logicMIC6Al = new G4LogicalVolume(
@@ -1114,58 +1133,58 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
     logicMIC6Al->SetVisAttributes(MIC6AlVisAttr);
     new G4PVPlacement(
       nullptr,
-      G4ThreeVector(0, 0, (-wedge_Z+wedge_MIC6Al_Z)/2.),
+      G4ThreeVector(),
       logicMIC6Al,
       detname.c_str(),
-      motherLogical,
+      logicMIC6AlEnclosing,
       false,
       0,
       fCheckOverlaps
     );
   }
 
-  if (addCoolingPipes){
+  if (addCoolingPipes && logicMIC6AlEnclosing){
     detname = detbase + "_CoolingPipe";
     G4RotationMatrix* rotm = new G4RotationMatrix(); rotm->rotateX(M_PI*rad/2.);
+    G4VisAttributes* visAttrOuter = new G4VisAttributes(G4Colour::White()); visAttrOuter->SetVisibility(true);
+    G4VisAttributes* visAttrInner = new G4VisAttributes(G4Colour::Blue()); visAttrInner->SetVisibility(true);
     for (std::pair<G4double, G4double> const& xpos_ymin:coolingpipes_xpos_ymin){
       G4double const& ymin = xpos_ymin.second;
-      G4double ymax = std::sqrt(std::pow(wedge_Rmax, 2) - std::pow(xpos_ymin.first, 2));
+      G4double ymax = std::sqrt(std::pow(wedge_Rmax, 2) - std::pow(xpos_ymin.first-coolingpipe_Rmax, 2));
       G4double dy = ymax-ymin;
-      G4Tubs* solidInnerTube = new G4Tubs((detname+"_Inner").c_str(), G4double(0.), coolingpipe_Rmin, dy/2., G4double(0), M_PI*rad);
-      G4Tubs* solidOuterTube = new G4Tubs((detname+"_Outer").c_str(), coolingpipe_Rmin, coolingpipe_Rmax, dy/2., G4double(0), M_PI*rad);
+      G4Tubs* solidInnerTube = new G4Tubs((detname+"_Inner").c_str(), G4double(0.), coolingpipe_Rmin, dy/2., G4double(0), M_PI*rad*2.);
+      G4Tubs* solidOuterTube = new G4Tubs((detname+"_Outer").c_str(), coolingpipe_Rmin, coolingpipe_Rmax, dy/2., G4double(0), M_PI*rad*2.);
+      G4cout << "Placing a pipe at x = " << xpos_ymin.first << " with y min/max = " << ymin << " / " << ymax << " and Rmin/max = " << coolingpipe_Rmin << " / " << coolingpipe_Rmax << G4endl;
 
-      G4VisAttributes* visAttr = nullptr;
       G4LogicalVolume* logicInnerTube = new G4LogicalVolume(
         solidInnerTube,
         Cooling_mat,
         (detname+"_Inner").c_str()
       );
-      visAttr = new G4VisAttributes(G4Colour::White()); visAttr->SetVisibility(true);
-      logicInnerTube->SetVisAttributes(visAttr);
+      logicInnerTube->SetVisAttributes(visAttrInner);
       G4LogicalVolume* logicOuterTube = new G4LogicalVolume(
         solidOuterTube,
         CoolingPipe_mat,
         (detname+"_Outer").c_str()
       );
-      visAttr = new G4VisAttributes(G4Colour::Blue()); visAttr->SetVisibility(true);
-      logicOuterTube->SetVisAttributes(visAttr);
+      logicOuterTube->SetVisAttributes(visAttrOuter);
 
       new G4PVPlacement(
         rotm,
-        G4ThreeVector(xpos_ymin.first, ymin, (-wedge_Z+wedge_Epoxy_Z)/2.+wedge_MIC6Al_Z),
+        G4ThreeVector(xpos_ymin.first, ymin+dy/2., wedge_MIC6Al_Z/2.-coolingpipe_Rmax),
         logicInnerTube,
         (detname+"_Inner").c_str(),
-        motherLogical,
+        logicMIC6AlEnclosing,
         false,
         0,
         fCheckOverlaps
       );
       new G4PVPlacement(
         rotm,
-        G4ThreeVector(xpos_ymin.first, ymin, (-wedge_Z+wedge_Epoxy_Z)/2.+wedge_MIC6Al_Z),
+        G4ThreeVector(xpos_ymin.first, ymin+dy/2., wedge_MIC6Al_Z/2.-coolingpipe_Rmax),
         logicOuterTube,
         (detname+"_Outer").c_str(),
-        motherLogical,
+        logicMIC6AlEnclosing,
         false,
         0,
         fCheckOverlaps
@@ -1263,6 +1282,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   string const det_offset = "ETLOffset";
   string const det_wedge = "ETLWedge";
   string const det_wedge_attachment = "ETLWedge_Attachment";
+  string const det_wedge_coolingpipe = "ETLWedge_CoolingPipe";
   string const det_onesensor = "ETLOneSensorModule";
   string const det_twosensor = "ETLTwoSensorModule";
   string const det_servicehybrid6 = "ETL6SensorServiceHybrid";
@@ -1318,6 +1338,10 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double wedge_frontface_sensor_Offset_X = wedge_attachment_Y/2. - wedge_attachment_Offset_Y;
   G4double wedge_frontface_sensor_Offset_Y = wedge_attachment_Y/2. + wedge_attachment_Offset_Y;
 
+  // Cooling pipes
+  detname = det_wedge_coolingpipe;
+  G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
+
   // External offsets
   detname = det_offset + "_Module_SensorServiceHybrid_dX";
   G4double sep_X_module_servicehybrid = getDimension(detname);
@@ -1348,8 +1372,11 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   constexpr bool doCloseDisk = true;
 
   // Generic wedge box parameters
-  G4double diskBox_X = wedge_Rmax*2.;
-  G4double diskBox_Y = wedge_Rmax*2.;
+  G4double wedge_Rmax_dXOverflow = coolingpipe_Rmax*2.;
+  G4double wedge_RSqOverflow = std::max(wedge_Rmax_dXOverflow*(wedge_Rmax*2.-wedge_Rmax_dXOverflow), std::pow(wedge_attachment_Y, 2));
+  G4double wedge_Renclosing = std::sqrt(std::pow(wedge_Rmax, 2)+wedge_RSqOverflow);
+  G4double diskBox_X = wedge_Renclosing*2.;
+  G4double diskBox_Y = wedge_Renclosing*2.;
   G4double diskBox_Z = wedge_fullZ;
 
   // Generic endcap parameters
@@ -1430,7 +1457,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   detname = det_disk+"_WedgeContainer";
   G4Tubs* solidDisk = new G4Tubs(
     detname.c_str(),
-    wedge_Rmin, wedge_Rmax, wedge_fullZ/2., 0, M_PI*2.*rad
+    wedge_Rmin, wedge_Renclosing, wedge_fullZ/2., 0, M_PI*2.*rad
   );
   G4LogicalVolume* logicDisk = new G4LogicalVolume(
     solidDisk,
@@ -1454,7 +1481,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   detname = det_wedge;
   G4Tubs* solidWedge = new G4Tubs(
     detname.c_str(),
-    wedge_Rmin, wedge_Rmax, wedge_fullZ/2., 0, 90.*degree
+    wedge_Rmin, wedge_Renclosing, wedge_fullZ/2., 0, 90.*degree
   );
   G4LogicalVolume* logicWedge = new G4LogicalVolume(
     solidWedge,
@@ -1485,7 +1512,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   detname = det_wedge+"_PassiveMaterial";
   G4Tubs* solidWedgePassive = new G4Tubs(
     detname.c_str(),
-    wedge_Rmin, wedge_Rmax, wedge_Z/2., 0, 90.*degree
+    wedge_Rmin, wedge_Renclosing, wedge_Z/2., 0, 90.*degree
   );
   G4LogicalVolume* logicWedgePassive = new G4LogicalVolume(
     solidWedgePassive,
@@ -1500,7 +1527,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   detname = det_wedge+"_ActiveMaterial";
   G4Tubs* solidWedgeActive = new G4Tubs(
     detname.c_str(),
-    wedge_Rmin, wedge_Rmax, (wedge_fullZ-wedge_Z)/4., 0, 90.*degree
+    wedge_Rmin, wedge_Renclosing, (wedge_fullZ-wedge_Z)/4., 0, 90.*degree
   );
   G4LogicalVolume* logicWedgeActive_Far = new G4LogicalVolume(
     solidWedgeActive,
