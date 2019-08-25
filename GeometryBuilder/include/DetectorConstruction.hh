@@ -41,7 +41,7 @@ protected:
   void BuildOneSensorModule(G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos);
   void BuildTwoSensorModule(G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos);
   void BuildSensorServiceHybrid(int const& nSensorsPerSide, G4LogicalVolume* motherLogical, G4RotationMatrix* rotation, G4ThreeVector const& relativePos);
-  void BuildWedgeComponents(G4LogicalVolume* motherLogical, std::vector<std::pair<G4double, G4double>> const& coolingpipes_xpos_ymin);
+  void BuildWedgeComponents(G4LogicalVolume* passiveLogical, G4LogicalVolume* activeFarLogical, std::vector<std::pair<G4double, G4double>> const& coolingpipes_xpos_ymin);
 
 public:
   DetectorConstruction();

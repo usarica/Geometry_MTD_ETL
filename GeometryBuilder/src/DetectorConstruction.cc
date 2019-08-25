@@ -979,7 +979,9 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   );
 }
 
-void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, std::vector<std::pair<G4double, G4double>> const& coolingpipes_xpos_ymin){
+// The grandmother is the wedge logical, and the mother is the inner passive component
+// One needs the grandmother to place the front face support bars.
+void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* passiveLogical, G4LogicalVolume* activeFarLogical, std::vector<std::pair<G4double, G4double>> const& coolingpipes_xpos_ymin){
   using namespace ETLDetectorDimensions;
 
   string const detbase = "ETLWedge";
@@ -991,6 +993,7 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
   G4Material* CoolingAl_mat = G4Material::GetMaterial("G4_Al");
   G4Material* Cooling_mat = G4Material::GetMaterial("Cool_CO2");
   G4Material* CoolingPipe_mat = G4Material::GetMaterial("G4_STAINLESS-STEEL");
+  G4Material* Attachment_mat = CoolingAl_mat;
   if (!Epoxy_mat){
     G4ExceptionDescription msg;
     msg << "Cannot retrieve Epoxy_mat.";
@@ -1034,6 +1037,16 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
   constexpr bool addEpoxy = true;
   constexpr bool addCoolingAl = true;
 
+  detname = detbase + "_Attachment";
+  G4double wedge_attachment_X = getDimension(detname+"_X");
+  G4double wedge_attachment_Y = getDimension(detname+"_Y");
+  G4double wedge_attachment_Z = getDimension(detname+"_Z");
+  G4double wedge_attachment_Offset_X = getDimension(detname+"_Offset_X");
+  G4double wedge_attachment_Offset_Y = getDimension(detname+"_Offset_Y");
+  G4double wedge_attachment_lower_Y = wedge_attachment_Y/2.+wedge_attachment_Offset_Y;
+  G4double wedge_attachment_upper_Y = wedge_attachment_Y/2.-wedge_attachment_Offset_Y;
+  constexpr bool addFrontFaceSupportBars = true;
+
   detname = detbase + "_CoolingPipe";
   G4double coolingpipe_Rmin = getDimension(detname+"_Rmin");
   G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
@@ -1065,7 +1078,7 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
       G4ThreeVector(0, 0, (-wedge_Z+wedge_MIC6Al_Z)/2.),
       logicMIC6AlEnclosing,
       (detname+"_Enclosing").c_str(),
-      motherLogical,
+      passiveLogical,
       false,
       0,
       fCheckOverlaps
@@ -1211,7 +1224,7 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
       G4ThreeVector(0, 0, (-wedge_Z+wedge_Epoxy_Z)/2.+wedge_MIC6Al_Z),
       logicEpoxy,
       detname.c_str(),
-      motherLogical,
+      passiveLogical,
       false,
       0,
       fCheckOverlaps
@@ -1237,7 +1250,51 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* motherLogical, 
       G4ThreeVector(0, 0, (-wedge_Z+wedge_CoolingAl_Z)/2.+wedge_MIC6Al_Z+wedge_Epoxy_Z),
       logicCoolingAl,
       detname.c_str(),
-      motherLogical,
+      passiveLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+
+  detname = detbase + "_Attachment";
+  if (addFrontFaceSupportBars){
+    G4VisAttributes* AttachmentVisAttr = new G4VisAttributes(G4Colour::Gray()); AttachmentVisAttr->SetVisibility(true);
+
+    G4ThreeVector relpos_lower(wedge_attachment_Offset_X + wedge_attachment_X/2., wedge_attachment_lower_Y/2., -(wedge_fullZ-wedge_Z)/4.+wedge_attachment_Z/2.);
+    G4Box* solidAttachment_Lower = new G4Box((detname+"_Lower").c_str(), wedge_attachment_X/2., wedge_attachment_lower_Y/2., wedge_attachment_Z/2.);
+    G4LogicalVolume* logicAttachment_Lower = new G4LogicalVolume(
+      solidAttachment_Lower,
+      Attachment_mat,
+      (detname+"_Lower").c_str()
+    );
+    logicAttachment_Lower->SetVisAttributes(AttachmentVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      relpos_lower,
+      logicAttachment_Lower,
+      (detname+"_Lower").c_str(),
+      activeFarLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+
+    G4ThreeVector relpos_upper(wedge_attachment_upper_Y/2., wedge_attachment_Offset_X + wedge_attachment_X/2., -(wedge_fullZ-wedge_Z)/4.+wedge_attachment_Z/2.);
+    G4RotationMatrix* rotm = new G4RotationMatrix; rotm->rotateZ(-M_PI*rad/2.);
+    G4Box* solidAttachment_Upper = new G4Box((detname+"_Upper").c_str(), wedge_attachment_X/2., wedge_attachment_upper_Y/2., wedge_attachment_Z/2.);
+    G4LogicalVolume* logicAttachment_Upper = new G4LogicalVolume(
+      solidAttachment_Upper,
+      Attachment_mat,
+      (detname+"_Upper").c_str()
+    );
+    logicAttachment_Upper->SetVisAttributes(AttachmentVisAttr);
+    new G4PVPlacement(
+      rotm,
+      relpos_upper,
+      logicAttachment_Upper,
+      (detname+"_Upper").c_str(),
+      activeFarLogical,
       false,
       0,
       fCheckOverlaps
@@ -1275,6 +1332,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   }
 
   // Size parameters
+  string detname;
   string const det_etl = "MTD_ETL";
   string const det_endcap = "ETLEndCap";
   string const det_disk = "ETLDisk";
@@ -1287,8 +1345,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   string const det_twosensor = "ETLTwoSensorModule";
   string const det_servicehybrid6 = "ETL6SensorServiceHybrid";
   string const det_servicehybrid12 = "ETL12SensorServiceHybrid";
-
-  string detname;
 
   detname = det_onesensor;
   G4double onesensor_X = getDimension(detname+"_X");
@@ -1367,9 +1423,9 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   constexpr bool putWedgeComponents = true;
   constexpr bool doWedgeFarFace = true;
   constexpr bool doWedgeCloseFace = true;
-  constexpr bool doFullDisk = true;
+  constexpr bool doFullDisk = false;
   constexpr bool doFarDisk = true;
-  constexpr bool doCloseDisk = true;
+  constexpr bool doCloseDisk = false;
 
   // Generic wedge box parameters
   G4double wedge_Rmax_dXOverflow = coolingpipe_Rmax*2.;
@@ -1549,6 +1605,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   size_t ix_module, ix_service;
   G4double wedge_xpos;
   G4double wedge_ypos;
+  G4double wedge_yposinf;
   G4double wedge_yposmin;
   G4double wedge_yposmax;
   G4double wedge_Roffset;
@@ -1576,10 +1633,11 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Calculate yposmin:
   // Depends on how many modules will fit as well
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
+  wedge_yposinf = (wedge_frontface_sensor_Offset_Y + sep_Y_module_wedgeAttachment);
   {
-    G4double nmodules_d = (wedge_yposmin - wedge_frontface_sensor_Offset_Y - sep_Y_module_wedgeAttachment) / onesensor_Y;
+    G4double nmodules_d = (wedge_yposmin - wedge_yposinf) / (onesensor_Y + sep_Y_module_module);
     G4int nmodules_i = std::ceil(nmodules_d);
-    wedge_yposmin = (G4double) nmodules_i * onesensor_Y + wedge_frontface_sensor_Offset_Y + sep_Y_module_wedgeAttachment;
+    wedge_yposmin = ((G4double) nmodules_i) * (onesensor_Y + sep_Y_module_module) + wedge_yposinf;
   }
   while (doWedgeFarFace){ // Loop over columns
     sensorhybrid_xpos.push_back(wedge_xpos);
@@ -1669,9 +1727,10 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         (wedge_yposmin - sqrt(fabs(pow(wedge_Rmin + wedge_Roffset, 2) - pow(wedge_xpos - servicehybrid6_X/2., 2))))>=(onesensor_Y+sep_Y_module_module)
         )
       ){
-      if (wedge_yposmin<(onesensor_Y+sep_Y_module_module)) break;
+      if (wedge_yposmin<(onesensor_Y + sep_Y_module_module)) break;
       G4cout << "Subtracting deltaY = " << (onesensor_Y+sep_Y_module_module) << " from y pos = " << wedge_yposmin << G4endl;
-      wedge_yposmin -= (onesensor_Y+sep_Y_module_module);
+      wedge_yposmin -= (onesensor_Y + sep_Y_module_module);
+      G4cout << "New y pos = " << wedge_yposmin << G4endl;
     }
 
     if (wedge_xpos>=wedge_Rmax) break;
@@ -1839,6 +1898,12 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Place service hybrids first
   wedge_xpos = servicehybrid6_X/2.;
   wedge_yposmin = (wedge_Rmin + wedge_Roffset);
+  wedge_yposinf = 1e-6*mm;
+  {
+    G4double nmodules_d = (wedge_yposmin - wedge_yposinf) / (onesensor_Y + sep_Y_module_module);
+    G4int nmodules_i = std::ceil(nmodules_d);
+    wedge_yposmin = ((G4double) nmodules_i) * (onesensor_Y + sep_Y_module_module) + wedge_yposinf;
+  }
   while (doWedgeCloseFace){ // Loop over columns
     sensorhybrid_xpos.push_back(wedge_xpos);
 
@@ -1928,9 +1993,10 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         (wedge_yposmin - sqrt(fabs(pow(wedge_Rmin + wedge_Roffset, 2) - pow(wedge_xpos - servicehybrid6_X/2., 2))))>=(onesensor_Y+sep_Y_module_module)
         )
       ){
-      if (wedge_yposmin<(onesensor_Y+sep_Y_module_module)) break;
+      if (wedge_yposmin<(onesensor_Y + sep_Y_module_module)) break;
       G4cout << "Subtracting deltaY = " << (onesensor_Y+sep_Y_module_module) << " from y pos = " << wedge_yposmin << G4endl;
-      wedge_yposmin -= (onesensor_Y+sep_Y_module_module);
+      wedge_yposmin -= (onesensor_Y + sep_Y_module_module);
+      G4cout << "New y pos = " << wedge_yposmin << G4endl;
     }
 
     if (wedge_xpos>=wedge_Rmax) break;
@@ -2082,7 +2148,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /* Construct the wedge components */
   /**********************************/
   /**********************************/
-  if (putWedgeComponents) BuildWedgeComponents(logicWedgePassive, coolingpipes_xpos_ymin);
+  if (putWedgeComponents) BuildWedgeComponents(logicWedgePassive, logicWedgeActive_Far, coolingpipes_xpos_ymin);
 
   // Place the passive material
   detname = det_wedge+"_PassiveMaterial";
