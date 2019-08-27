@@ -16,6 +16,7 @@
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
 #include "G4PVReplica.hh"
+#include "G4ReflectionFactory.hh"
 #include "G4SystemOfUnits.hh"
 
 
@@ -79,9 +80,11 @@ void DetectorConstruction::DefineMaterials(){
   G4Material* nist_Sn = nist->FindOrBuildMaterial("G4_Sn");
   G4Material* nist_Ag = nist->FindOrBuildMaterial("G4_Ag");
   G4Material* nist_Cu = nist->FindOrBuildMaterial("G4_Cu");
-  //nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
   G4Material* nist_Steel = nist->FindOrBuildMaterial("G4_STAINLESS-STEEL");
+  G4Material* nist_SiO2 = nist->FindOrBuildMaterial("G4_SILICON_DIOXIDE");
+  G4Material* nist_Glass = nist->FindOrBuildMaterial("G4_GLASS_PLATE");
 
+  nist->FindOrBuildMaterial("G4_POLYETHYLENE");
   //G4double env_temp = (273.16+15.00)*kelvin; // NTP_Temperature=293.15*kelvin
   //G4double env_pressure = STP_Pressure; // in units of pascal
 
@@ -105,7 +108,9 @@ void DetectorConstruction::DefineMaterials(){
   G4Element* Nitrogen = nist->FindOrBuildElement("N");
   G4Element* Carbon = nist->FindOrBuildElement("C");
   G4Element* Hydrogen = nist->FindOrBuildElement("H");
+  G4Element* Oxygen = nist->FindOrBuildElement("O");
   G4Element* Silicon = nist->FindOrBuildElement("Si");
+  G4Element* Magnesium = nist->FindOrBuildElement("Mg");
   //G4Element* Tin = nist->FindOrBuildElement("Sn");
   //G4Element* Silver = nist->FindOrBuildElement("Ag");
   G4Element* Copper = nist->FindOrBuildElement("Cu");
@@ -121,11 +126,27 @@ void DetectorConstruction::DefineMaterials(){
   AlN->AddElement(Aluminum, (G4int) 1);
   AlN->AddElement(Nitrogen, (G4int) 1);
 
-  G4Material* FR4 = new G4Material("FR4", 1.85*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
-  FR4->AddElement(Carbon, (G4int) 1);
+  G4Material* Mg_OH2 = new G4Material("Mg_OH2", 2.34*g/cm3, 3, kStateSolid, NTP_Temperature, STP_Pressure);
+  Mg_OH2->AddElement(Magnesium, (G4int) 1);
+  Mg_OH2->AddElement(Hydrogen, (G4int) 2);
+  Mg_OH2->AddElement(Oxygen, (G4int) 2);
 
-  G4Material* PCB = new G4Material("PCB", 1.85*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
+  G4Material* PET = new G4Material("PET", 1.38*g/cm3, 3, kStateSolid, NTP_Temperature, STP_Pressure);
+  PET->AddElement(Carbon, (G4int) 10);
+  PET->AddElement(Hydrogen, (G4int) 8);
+  PET->AddElement(Oxygen, (G4int) 4);
+
+  G4Material* FR4 = new G4Material("FR4", 1.85*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
+  FR4->AddElement(Carbon, (G4int) 1);
+  FR4->AddElement(Hydrogen, (G4int) 1);
+
+  G4Material* PCB = new G4Material("PCB", 1.85*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // For circuit boards, density approximate?
   PCB->AddElement(Carbon, (G4int) 1);
+  PCB->AddElement(Hydrogen, (G4int) 1);
+
+  G4Material* Permaglas = new G4Material("Permaglas", 1.85*g/cm3, 2, kStateSolid, NTP_Temperature, STP_Pressure); // Insulation material, density approximate
+  Permaglas->AddElement(Carbon, (G4int) 1);
+  Permaglas->AddElement(Hydrogen, (G4int) 1);
 
   G4Material* Mat_LGAD = new G4Material("Mat_LGAD", 2.3290*g/cm3, 1, kStateSolid, NTP_Temperature, STP_Pressure); // For LGAD or ETROC
   Mat_LGAD->AddElement(Silicon, (G4int) 1);
@@ -152,6 +173,14 @@ void DetectorConstruction::DefineMaterials(){
   G4Material* ServiceConnector = new G4Material("ServiceConnector", (nist_Cu->GetDensity()*0.1 + Air->GetDensity()*0.9), 2, kStateSolid, NTP_Temperature, STP_Pressure); // FIXME: Composition should be per mol, and density needs recalc
   ServiceConnector->AddMaterial(nist_Cu, (G4double) 0.1);
   ServiceConnector->AddMaterial(Air, (G4double) 0.9);
+
+  G4Material* Aerogel = new G4Material("Aerogel", 0.16*g/cm3, 6, kStateSolid, NTP_Temperature, STP_Pressure);
+  Aerogel->AddMaterial(Air, (G4double) 0.9);
+  Aerogel->AddMaterial(nist_SiO2, (G4double) 0.065);
+  Aerogel->AddMaterial(PET, (G4double) 0.015);
+  Aerogel->AddMaterial(nist_Glass, (G4double) 0.015);
+  Aerogel->AddMaterial(Mg_OH2, (G4double) 0.0025);
+  Aerogel->AddMaterial(nist_Al, (G4double) 0.0025);
 
   G4cout << "DetectorConstruction::DefineMaterials: AlN built!" << G4endl;
 
@@ -1033,9 +1062,6 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* passiveLogical,
   G4double wedge_CoolingAl_Z = getDimension(detname+"_CoolingAl_Z");
   G4double wedge_Z = getDimension(detname+"_Z");
   G4double wedge_fullZ = getDimension(detname+"_FullZ");
-  constexpr bool addMIC6Al = true;
-  constexpr bool addEpoxy = true;
-  constexpr bool addCoolingAl = true;
 
   detname = detbase + "_Attachment";
   G4double wedge_attachment_X = getDimension(detname+"_X");
@@ -1045,13 +1071,10 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* passiveLogical,
   G4double wedge_attachment_Offset_Y = getDimension(detname+"_Offset_Y");
   G4double wedge_attachment_lower_Y = wedge_attachment_Y/2.+wedge_attachment_Offset_Y;
   G4double wedge_attachment_upper_Y = wedge_attachment_Y/2.-wedge_attachment_Offset_Y;
-  constexpr bool addFrontFaceSupportBars = true;
 
   detname = detbase + "_CoolingPipe";
   G4double coolingpipe_Rmin = getDimension(detname+"_Rmin");
   G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
-  constexpr bool drillCoolingPipeCavities = true;
-  constexpr bool addCoolingPipes = true && drillCoolingPipeCavities;
 
   G4double wedge_Rmax_dXOverflow = coolingpipe_Rmax*2.;
   G4double wedge_RSqOverflow = wedge_Rmax_dXOverflow*(wedge_Rmax*2.-wedge_Rmax_dXOverflow);
@@ -1302,6 +1325,118 @@ void DetectorConstruction::BuildWedgeComponents(G4LogicalVolume* passiveLogical,
   }
 }
 
+void DetectorConstruction::BuildEndCapSupportComponents(G4LogicalVolume* motherLogical){
+  using namespace ETLDetectorDimensions;
+
+  string const detbase = "ETLSupport";
+  string const det_wedge = "ETLWedge";
+  string const det_offset = "ETLOffset";
+  string detname;
+
+  G4Material* empty_mat = G4Material::GetMaterial("Vacuum");
+  G4Material* supportTube_mat = G4Material::GetMaterial("Permaglas");
+  G4Material* neutronModerator_mat = G4Material::GetMaterial("G4_POLYETHYLENE");
+  G4Material* thermalScreenCore_mat = G4Material::GetMaterial("Aerogel");
+  G4Material* thermalScreenSkin_mat = supportTube_mat;
+  G4Material* mountingBracket_mat = supportTube_mat;
+  if (!empty_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve empty_mat.";
+    G4Exception("DetectorConstruction::BuildEndCapSupportComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!supportTube_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve supportTube_mat.";
+    G4Exception("DetectorConstruction::BuildEndCapSupportComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!neutronModerator_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve neutronModerator_mat.";
+    G4Exception("DetectorConstruction::BuildEndCapSupportComponents",
+                "MyCode0001", FatalException, msg);
+  }
+  if (!thermalScreenCore_mat){
+    G4ExceptionDescription msg;
+    msg << "Cannot retrieve thermalScreenCore_mat.";
+    G4Exception("DetectorConstruction::BuildEndCapSupportComponents",
+                "MyCode0001", FatalException, msg);
+  }
+
+  detname = det_wedge;
+  G4double wedge_Rmin = getDimension(detname+"_Rmin");
+  G4double wedge_Z = getDimension(detname+"_Z");
+  G4double wedge_fullZ = getDimension(detname+"_FullZ");
+
+  detname = det_offset + "_Disks_dZ";
+  G4double sep_Z_disks = getDimension(detname);
+
+  detname = detbase + "_SupportTube";
+  G4double supportTube_thickness = getDimension(detname+"_Thickness");
+  G4double const& supportTube_Rmax = wedge_Rmin;
+  G4double supportTube_Rmin = supportTube_Rmax - supportTube_thickness;
+  G4double supportTube_Z = sep_Z_disks + wedge_Z + wedge_fullZ;
+
+  detname = detbase + "_MountingBracket";
+  G4double mountingBracket_thickness = getDimension(detname+"_Thickness");
+  G4double const& mountingBracket_Rmin = wedge_Rmin;
+  G4double mountingBracket_Rmax = mountingBracket_Rmin + mountingBracket_thickness;
+
+  // Support tube
+  detname = detbase + "_SupportTube";
+  if (addSupportTube){
+    G4VisAttributes* supportTubeVisAttr = new G4VisAttributes(G4Colour::Blue()); supportTubeVisAttr->SetVisibility(true);
+    G4Tubs* solidSupportTube = new G4Tubs(
+      detname.c_str(),
+      supportTube_Rmin, supportTube_Rmax, supportTube_Z/2., 0, M_PI*2.*rad
+    );
+    G4LogicalVolume* logicSupportTube = new G4LogicalVolume(
+      solidSupportTube,
+      supportTube_mat,
+      detname.c_str()
+    );
+    logicSupportTube->SetVisAttributes(supportTubeVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector(),
+      logicSupportTube,
+      detname.c_str(),
+      motherLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+
+  // Mounting bracket on top of the support tube and in the middle of the two disks
+  detname = detbase + "_MountingBracket";
+  if (addMountingBracket){
+    G4VisAttributes* mountingBracketVisAttr = new G4VisAttributes(G4Colour::Blue()); mountingBracketVisAttr->SetVisibility(true);
+    G4Tubs* solidMountingBracket = new G4Tubs(
+      detname.c_str(),
+      mountingBracket_Rmin, mountingBracket_Rmax, sep_Z_disks/2., 0, M_PI*2.*rad
+    );
+    G4LogicalVolume* logicMountingBracket = new G4LogicalVolume(
+      solidMountingBracket,
+      mountingBracket_mat,
+      detname.c_str()
+    );
+    logicMountingBracket->SetVisAttributes(mountingBracketVisAttr);
+    new G4PVPlacement(
+      nullptr,
+      G4ThreeVector(),
+      logicMountingBracket,
+      detname.c_str(),
+      motherLogical,
+      false,
+      0,
+      fCheckOverlaps
+    );
+  }
+
+}
+
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   using namespace ETLDetectorDimensions;
@@ -1311,6 +1446,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4Material* diskBox_mat = world_mat;
   G4Material* wedgeEnclosure_mat = diskBox_mat;
   G4Material* endcap_mat = diskBox_mat;
+  G4Material* mtd_mat = diskBox_mat;
   G4Material* wedge_attachment_mat = G4Material::GetMaterial("G4_Al");
   if (!world_mat){
     G4ExceptionDescription msg;
@@ -1333,6 +1469,8 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
 
   // Size parameters
   string detname;
+  string const det_cms = "CMS";
+  string const det_mtd = "MTD";
   string const det_etl = "MTD_ETL";
   string const det_endcap = "ETLEndCap";
   string const det_disk = "ETLDisk";
@@ -1345,6 +1483,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   string const det_twosensor = "ETLTwoSensorModule";
   string const det_servicehybrid6 = "ETL6SensorServiceHybrid";
   string const det_servicehybrid12 = "ETL12SensorServiceHybrid";
+  string const det_support = "ETLSupport";
 
   detname = det_onesensor;
   G4double onesensor_X = getDimension(detname+"_X");
@@ -1398,6 +1537,10 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   detname = det_wedge_coolingpipe;
   G4double coolingpipe_Rmax = getDimension(detname+"_Rmax");
 
+  // Support structures
+  detname = det_support;
+  G4double mountingBracket_thickness = getDimension(detname+"_MountingBracket_Thickness");
+
   // External offsets
   detname = det_offset + "_Module_SensorServiceHybrid_dX";
   G4double sep_X_module_servicehybrid = getDimension(detname);
@@ -1411,6 +1554,8 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double sep_Y_servicehybrid_servicehybrid = getDimension(detname);
   detname = det_offset + "_Disks_dZ";
   G4double sep_Z_disks = getDimension(detname);
+  detname = det_offset + "_IP_dZ";
+  G4double IP_dZ = getDimension(detname);
 
 
   /******************/
@@ -1418,35 +1563,39 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /* BEGIN GEOMETRY */
   /******************/
   /******************/
-  constexpr bool putServiceHybrids = true;
-  constexpr bool putModules = true;
-  constexpr bool putWedgeComponents = true;
-  constexpr bool doWedgeFarFace = true;
-  constexpr bool doWedgeCloseFace = true;
-  constexpr bool doFullDisk = false;
-  constexpr bool doFarDisk = true;
-  constexpr bool doCloseDisk = false;
 
   // Generic wedge box parameters
   G4double wedge_Rmax_dXOverflow = coolingpipe_Rmax*2.;
   G4double wedge_RSqOverflow = std::max(wedge_Rmax_dXOverflow*(wedge_Rmax*2.-wedge_Rmax_dXOverflow), std::pow(wedge_attachment_Y, 2));
   G4double wedge_Renclosing = std::sqrt(std::pow(wedge_Rmax, 2)+wedge_RSqOverflow);
+  G4double const& diskBox_Rmin = wedge_Rmin;
+  G4double const& diskBox_Rmax = wedge_Renclosing;
   G4double diskBox_X = wedge_Renclosing*2.;
   G4double diskBox_Y = wedge_Renclosing*2.;
   G4double diskBox_Z = wedge_fullZ;
 
+  // Generic disk pair parameters
+  G4double diskPair_X = diskBox_X;
+  G4double diskPair_Y = diskBox_Y;
+  G4double diskPair_Z = diskBox_Z*2. + sep_Z_disks;
+
   // Generic endcap parameters
-  G4double endcap_X = diskBox_X;
-  G4double endcap_Y = diskBox_Y;
-  G4double endcap_Z = diskBox_Z*2. + sep_Z_disks;
+  G4double endcap_X = diskPair_X;
+  G4double endcap_Y = diskPair_Y;
+  G4double endcap_Z = diskPair_Z; // Will have to change once other systems are also placed
+
+  // Generic MTD parameters
+  G4double mtd_X = endcap_X;
+  G4double mtd_Y = endcap_Y;
+  G4double mtd_Z = diskPair_Z*2. + IP_dZ + (endcap_Z-diskPair_Z)*2.;
 
   // World parameters
-  G4double world_X = endcap_X;
-  G4double world_Y = endcap_Y;
-  G4double world_Z = endcap_Z;
+  G4double world_X = mtd_X;
+  G4double world_Y = mtd_Y;
+  G4double world_Z = mtd_Z;
 
   // World
-  detname = det_etl;
+  detname = det_cms;
   G4Box* solidWorld = new G4Box(
     detname.c_str(),
     world_X/2., world_Y/2., world_Z/2.
@@ -1469,7 +1618,32 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     fCheckOverlaps
   );
 
-  // The box enclosure of a disk
+  // The box enclosure of the two ETLs
+  detname = det_mtd;
+  G4Box* solidMTD = new G4Box(
+    detname.c_str(),
+    mtd_X/2., mtd_Y/2., mtd_Z/2.
+  );
+  G4LogicalVolume* logicMTD = new G4LogicalVolume(
+    solidMTD,
+    mtd_mat,
+    detname.c_str()
+  );
+  G4VisAttributes* mtdVisAttr = new G4VisAttributes(G4Colour::Black()); mtdVisAttr->SetVisibility(false);
+  logicMTD->SetVisAttributes(mtdVisAttr);
+  new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(),
+    logicMTD,
+    detname.c_str(),
+    logicWorld,
+    false,
+    0,
+    fCheckOverlaps
+  );
+  detector_components[detname] = BasicDetectorAttributes(solidMTD, logicMTD, mtd_mat, mtdVisAttr);
+
+  // The box enclosure of ETL
   detname = det_endcap;
   G4Box* solidEndcap = new G4Box(
     detname.c_str(),
@@ -1482,23 +1656,14 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   );
   G4VisAttributes* endcapVisAttr = new G4VisAttributes(G4Colour::Black()); endcapVisAttr->SetVisibility(false);
   logicEndcap->SetVisAttributes(endcapVisAttr);
-  new G4PVPlacement(
-    nullptr,
-    G4ThreeVector(),
-    logicEndcap,
-    detname.c_str(),
-    logicWorld,
-    false,
-    0,
-    fCheckOverlaps
-  );
   detector_components[detname] = BasicDetectorAttributes(solidEndcap, logicEndcap, endcap_mat, endcapVisAttr);
+  // Defer placement until the very end
 
   // The box enclosure of a full disk
   detname = det_disk;
-  G4Box* solidDiskBox = new G4Box(
+  G4Tubs* solidDiskBox = new G4Tubs(
     detname.c_str(),
-    diskBox_X/2., diskBox_Y/2., diskBox_Z/2.
+    diskBox_Rmin, diskBox_Rmax, diskBox_Z/2., 0, M_PI*2.*rad
   );
   G4LogicalVolume* logicDiskBox = new G4LogicalVolume(
     solidDiskBox,
@@ -1623,7 +1788,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /* Construct the front face of the wedge */
   /*****************************************/
   /*****************************************/
-  wedge_Roffset=0;
+  wedge_Roffset = 0;
   ix_module=ix_service=0;
   reflectionTransformation = nullptr;
   reflectionAndSideSwapTransformation = new G4RotationMatrix; reflectionAndSideSwapTransformation->rotateZ(M_PI*rad);
@@ -1887,7 +2052,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /* Construct the back face of the wedge */
   /****************************************/
   /****************************************/
-  wedge_Roffset=0;
+  wedge_Roffset = mountingBracket_thickness;
   ix_module=ix_service=0;
   wedge_xpos=0;
   reflectionTransformation = new G4RotationMatrix; reflectionTransformation->rotateY(M_PI*rad);
@@ -2149,6 +2314,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   /**********************************/
   /**********************************/
   if (putWedgeComponents) BuildWedgeComponents(logicWedgePassive, logicWedgeActive_Far, coolingpipes_xpos_ymin);
+  if (doEndCapSupport) BuildEndCapSupportComponents(logicEndcap);
 
   // Place the passive material
   detname = det_wedge+"_PassiveMaterial";
@@ -2187,9 +2353,9 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Place the disks
   detname = det_disk;
   if (doCloseDisk){
-    G4RotationMatrix* reflectionDisk = new G4RotationMatrix; reflectionDisk->rotateY(M_PI*rad);
+    G4RotationMatrix* rotateDisk = new G4RotationMatrix; rotateDisk->rotateY(M_PI*rad);
     new G4PVPlacement(
-      reflectionDisk,
+      rotateDisk,
       G4ThreeVector(0, 0, -(endcap_Z-diskBox_Z)/2.),
       logicDiskBox,
       (detname+"_Close").c_str(),
@@ -2211,6 +2377,53 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
       fCheckOverlaps
     );
   }
+
+  // Place the end caps
+  // IMPORTANT NOTE: reflections have to come at the very last step; otherwise nothing gets reflected at all!
+  detname = det_endcap;
+  if (!endcapsAreReflected){
+    if (doBackEndcap){
+      G4RotationMatrix* rotateETL = new G4RotationMatrix; rotateETL->rotateY(M_PI*rad);
+      new G4PVPlacement(
+        rotateETL,
+        G4ThreeVector(0, 0, -(diskPair_Z + IP_dZ)/2.),
+        logicEndcap,
+        (detname+"_Back").c_str(),
+        logicMTD,
+        false,
+        0,
+        fCheckOverlaps
+      );
+    }
+  }
+  else{
+    if (doBackEndcap){
+      G4Translate3D translation(0, 0, -(diskPair_Z + IP_dZ)/2.);
+      G4RotationMatrix* rot3D = new G4RotationMatrix();
+      G4Transform3D rotation = G4Rotate3D(*rot3D);
+      G4ReflectZ3D reflection;
+      G4Transform3D tr3D = translation*rotation*reflection;
+      G4ReflectionFactory::Instance()->Place(
+        tr3D,
+        (detname+"_Back").c_str(),
+        logicEndcap,
+        logicMTD,
+        false,
+        0,
+        fCheckOverlaps
+      );
+    }
+  }
+  if (doFrontEndcap) new G4PVPlacement(
+    nullptr,
+    G4ThreeVector(0, 0, (diskPair_Z + IP_dZ)/2.),
+    logicEndcap,
+    (detname+"_Front").c_str(),
+    logicMTD,
+    false,
+    0,
+    fCheckOverlaps
+  );
 
   fScoringVolume = logicWedge;
 

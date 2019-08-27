@@ -457,6 +457,11 @@ void ETLDetectorDimensions::setETLSupports(){
   const double supportTube_thickness = 6.*mm;
   dimension_map[detname] = supportTube_thickness;
 
+  // Mounting bracket
+  detname = detbase + "_MountingBracket_Thickness";
+  const double mountingBracket_thickness = supportTube_thickness;
+  dimension_map[detname] = mountingBracket_thickness;
+
   // Thermal screen (aerogel core) permaglas skin thickness
   detname = detbase + "_ThermalScreen_Skin_Thickness";
   const double thermalScreen_skin_thickness = 1.5*mm;
