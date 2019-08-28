@@ -37,14 +37,14 @@ private:
   constexpr static bool putModules = true;
   constexpr static bool doWedgeFarFace = true;
   constexpr static bool doWedgeCloseFace = true;
-  constexpr static bool doFullDisk = false;
+  constexpr static bool doFullDisk = true;
   constexpr static bool doFarDisk = true;
   constexpr static bool doCloseDisk = true;
   constexpr static bool putWedgeComponents = true;
   constexpr static bool addMIC6Al = true;
   constexpr static bool addEpoxy = true;
   constexpr static bool addCoolingAl = true;
-  constexpr static bool drillCoolingPipeCavities = false;
+  constexpr static bool drillCoolingPipeCavities = true;
   constexpr static bool addCoolingPipes = true && DetectorConstruction::drillCoolingPipeCavities;
   constexpr static bool addFrontFaceSupportBars = true && DetectorConstruction::doWedgeFarFace;
   constexpr static bool doEndCapSupport = true;

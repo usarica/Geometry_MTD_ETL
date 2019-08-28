@@ -870,7 +870,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4double servicehybridSize_Y = getDimension(detname+"_Y");
   G4double servicehybridSize_Z = getDimension(detname+"_Z");
   G4Material* servicehybridMat = G4Material::GetMaterial("Vacuum");
-  G4VisAttributes* servicehybridVisAttr = new G4VisAttributes(G4Colour::Gray()); servicehybridVisAttr->SetVisibility(false);
+  G4VisAttributes* servicehybridVisAttr = new G4VisAttributes(G4Colour::Black()); servicehybridVisAttr->SetVisibility(false);
 
   // Thermal pad
   detname = detbase + "_ThermalPad";
@@ -886,7 +886,7 @@ void DetectorConstruction::BuildSensorServiceHybrid(
   G4double readoutboardSize_Y = getDimension(detname+"_Y");
   G4double readoutboardSize_Z = getDimension(detname+"_Z");
   G4Material* readoutboardMat = G4Material::GetMaterial("PCB");
-  G4VisAttributes* readoutboardVisAttr = new G4VisAttributes((nSensorsPerSide == 3 ? G4Colour::Red() : G4Colour::Brown())); readoutboardVisAttr->SetVisibility(true);
+  G4VisAttributes* readoutboardVisAttr = new G4VisAttributes(G4Colour::Green()); readoutboardVisAttr->SetVisibility(true);
 
   // Connectors/flex/stiffener
   detname = detbase + "_Connectors";
@@ -1578,6 +1578,12 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   G4double diskPair_X = diskBox_X;
   G4double diskPair_Y = diskBox_Y;
   G4double diskPair_Z = diskBox_Z*2. + sep_Z_disks;
+  if (IP_dZ <= diskPair_Z){
+    G4ExceptionDescription msg;
+    msg << "IP_dZ <= diskPair_Z!";
+    G4Exception("DetectorConstruction::DefineVolumes",
+                "MyCode0002", FatalException, msg);
+  }
 
   // Generic endcap parameters
   G4double endcap_X = diskPair_X;
@@ -1587,7 +1593,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Generic MTD parameters
   G4double mtd_X = endcap_X;
   G4double mtd_Y = endcap_Y;
-  G4double mtd_Z = diskPair_Z*2. + IP_dZ + (endcap_Z-diskPair_Z)*2.;
+  G4double mtd_Z = (IP_dZ - diskPair_Z) + endcap_Z*2.;
 
   // World parameters
   G4double world_X = mtd_X;
@@ -2381,12 +2387,14 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Place the end caps
   // IMPORTANT NOTE: reflections have to come at the very last step; otherwise nothing gets reflected at all!
   detname = det_endcap;
-  if (!endcapsAreReflected){
-    if (doBackEndcap){
-      G4RotationMatrix* rotateETL = new G4RotationMatrix; rotateETL->rotateY(M_PI*rad);
+  if (doBackEndcap){
+    G4ThreeVector transZ(0, 0, -IP_dZ/2.);
+    G4RotationMatrix* rotateETL = new G4RotationMatrix;
+    if (!endcapsAreReflected){
+      rotateETL->rotateY(M_PI*rad);
       new G4PVPlacement(
         rotateETL,
-        G4ThreeVector(0, 0, -(diskPair_Z + IP_dZ)/2.),
+        transZ,
         logicEndcap,
         (detname+"_Back").c_str(),
         logicMTD,
@@ -2395,12 +2403,9 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         fCheckOverlaps
       );
     }
-  }
-  else{
-    if (doBackEndcap){
-      G4Translate3D translation(0, 0, -(diskPair_Z + IP_dZ)/2.);
-      G4RotationMatrix* rot3D = new G4RotationMatrix();
-      G4Transform3D rotation = G4Rotate3D(*rot3D);
+    else{
+      G4Translate3D translation(transZ);
+      G4Transform3D rotation = G4Rotate3D(*rotateETL);
       G4ReflectZ3D reflection;
       G4Transform3D tr3D = translation*rotation*reflection;
       G4ReflectionFactory::Instance()->Place(
@@ -2416,7 +2421,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   }
   if (doFrontEndcap) new G4PVPlacement(
     nullptr,
-    G4ThreeVector(0, 0, (diskPair_Z + IP_dZ)/2.),
+    G4ThreeVector(0, 0, +IP_dZ/2.),
     logicEndcap,
     (detname+"_Front").c_str(),
     logicMTD,
