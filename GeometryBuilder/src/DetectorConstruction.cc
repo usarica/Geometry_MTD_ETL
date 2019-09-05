@@ -1603,7 +1603,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // Generic MTD parameters
   G4double mtd_X = endcap_X;
   G4double mtd_Y = endcap_Y;
-  G4double mtd_Z = (IP_dZ - diskPair_Z) + endcap_Z*2.;
+  G4double mtd_Z = (IP_dZ*2. - diskPair_Z) + endcap_Z*2.;
 
   // World parameters
   G4double world_X = mtd_X;
@@ -2400,7 +2400,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   // IMPORTANT NOTE: reflections have to come at the very last step; otherwise nothing gets reflected at all!
   detname = det_endcap;
   if (doBackEndcap){
-    G4ThreeVector transZ(0, 0, -IP_dZ/2.);
+    G4ThreeVector transZ(0, 0, -IP_dZ);
     G4RotationMatrix* rotateETL = new G4RotationMatrix;
     if (!endcapsAreReflected){
       rotateETL->rotateY(M_PI*rad);
@@ -2433,7 +2433,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
   }
   if (doFrontEndcap) new G4PVPlacement(
     nullptr,
-    G4ThreeVector(0, 0, +IP_dZ/2.),
+    G4ThreeVector(0, 0, +IP_dZ),
     logicEndcap,
     (detname+"_Front").c_str(),
     logicMTD,
