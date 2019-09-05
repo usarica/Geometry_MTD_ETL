@@ -1,6 +1,7 @@
 #ifndef SteppingAction_h
 #define SteppingAction_h
 
+#include <vector>
 #include "G4UserSteppingAction.hh"
 #include "globals.hh"
 
@@ -18,7 +19,7 @@ public:
 
 private:
   EventAction* fEventAction;
-  G4LogicalVolume* fScoringVolume;
+  std::vector<G4LogicalVolume*> fScoringVolumes;
 };
 
 

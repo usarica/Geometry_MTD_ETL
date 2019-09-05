@@ -7,27 +7,29 @@
 #include "G4LogicalVolume.hh"
 
 
-SteppingAction::SteppingAction(EventAction* eventAction)
-: G4UserSteppingAction(),
-  fEventAction(eventAction),
-  fScoringVolume(0)
+SteppingAction::SteppingAction(EventAction* eventAction) :
+  G4UserSteppingAction(),
+  fEventAction(eventAction)
 {}
-SteppingAction::~SteppingAction()
-{}
+SteppingAction::~SteppingAction(){}
 
 void SteppingAction::UserSteppingAction(const G4Step* step){
-  if (!fScoringVolume){
-    const DetectorConstruction* detectorConstruction
-      = static_cast<const DetectorConstruction*>
-      (G4RunManager::GetRunManager()->GetUserDetectorConstruction());
-    fScoringVolume = detectorConstruction->GetScoringVolume();
+  if (fScoringVolumes.empty()){
+    const DetectorConstruction* detectorConstruction = static_cast<const DetectorConstruction*>(G4RunManager::GetRunManager()->GetUserDetectorConstruction());
+    fScoringVolumes = detectorConstruction->GetScoringVolumes();
   }
 
   // get volume of the current step
   G4LogicalVolume* volume = step->GetPreStepPoint()->GetTouchableHandle()->GetVolume()->GetLogicalVolume();
 
-  // check if we are in scoring volume
-  if (volume != fScoringVolume) return;
+  // check if we are in a scoring volume
+  G4bool inVol = false;
+  for (auto const& v:fScoringVolumes) inVol |= (volume == v);
+  if (!inVol){
+    G4cout << "Scoring volume " << volume->GetName() << " could not be found!" << G4endl;
+    return;
+  }
+  else G4cout << "Scoring volume " << volume->GetName() << " is found!" << G4endl;
 
   // collect energy deposited in this step
   G4double edepStep = step->GetTotalEnergyDeposit();

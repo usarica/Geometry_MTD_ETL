@@ -51,10 +51,16 @@ using namespace DetectorConstructionHelpers;
 
 DetectorConstruction::DetectorConstruction() :
   G4VUserDetectorConstruction(),
-  fCheckOverlaps(true),
-  fScoringVolume(nullptr)
+  fCheckOverlaps(true)
 {}
 DetectorConstruction::~DetectorConstruction(){}
+
+
+G4double DetectorConstruction::GetScoringVolumesTotalMass() const{
+  G4double res = 0;
+  for (auto const& v:fScoringVolumes) res += v->GetMass();
+  return res;
+}
 
 
 G4VPhysicalVolume* DetectorConstruction::Construct(){
@@ -386,6 +392,7 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   etrocLogical->SetVisAttributes(etrocVisAttr);
+  fScoringVolumes.push_back(etrocLogical);
   new G4PVPlacement(
     0, G4ThreeVector(((etrocSize_X-baseplateSize_X)/2. + etrocOffset_X), -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
@@ -441,6 +448,7 @@ void DetectorConstruction::BuildOneSensorModule(
     detname.c_str()
   );
   lgadLogical->SetVisAttributes(lgadVisAttr);
+  fScoringVolumes.push_back(lgadLogical);
   new G4PVPlacement(
     0, G4ThreeVector(((lgadSize_X-baseplateSize_X)/2. + lgadOffset_X), 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
@@ -687,6 +695,7 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   etrocLogical->SetVisAttributes(etrocVisAttr);
+  fScoringVolumes.push_back(etrocLogical);
   new G4PVPlacement(
     0, G4ThreeVector(-(etrocSize_X+etrocSep_X)/2., -(etrocSize_Y+etrocSep_Y)/2., basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+(etrocSize_Z-moduleSize_Z)/2.),
     etrocLogical,
@@ -771,6 +780,7 @@ void DetectorConstruction::BuildTwoSensorModule(
     detname.c_str()
   );
   lgadLogical->SetVisAttributes(lgadVisAttr);
+  fScoringVolumes.push_back(lgadLogical);
   new G4PVPlacement(
     0, G4ThreeVector(-(lgadSize_X+lgadSep_X)/2., 0, basefilmSize_Z+baseplateSize_Z+lairdfilmSize_Z+etrocSize_Z+bumpsSize_Z+(lgadSize_Z-moduleSize_Z)/2.),
     lgadLogical,
@@ -1939,10 +1949,12 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     G4double const& moduleWidthY = (useOneSensorModule ? onesensor_Y : twosensor_Y);
     G4cout << "Placing a set of " << (useOneSensorModule ? "one-" : "two-") << "sensor modules with width " << moduleWidthX << G4endl;
 
-    coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
-    // Correct ymin for the common segment of service hybrids
-    if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend)
-      coolingpipes_xpos_ymin.back().second = std::max(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
+    if (!useOneSensorModule){
+      coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
+      // Correct ymin for the common segment of service hybrids
+      if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend)
+        coolingpipes_xpos_ymin.back().second = std::max(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
+    }
 
     size_t i_object=0;
     wedge_ypos = wedge_yposmin;
@@ -2429,8 +2441,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     0,
     fCheckOverlaps
   );
-
-  fScoringVolume = logicWedge;
 
   //always return the physical World
   return physWorld;

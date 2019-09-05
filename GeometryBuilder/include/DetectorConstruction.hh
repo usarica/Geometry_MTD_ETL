@@ -56,7 +56,7 @@ private:
 
 protected:
   G4bool fCheckOverlaps; // Option to switch on/off checking of volumes overlaps
-  G4LogicalVolume* fScoringVolume;
+  std::vector<G4LogicalVolume*> fScoringVolumes;
 
   void DefineMaterials();
   G4VPhysicalVolume* DefineVolumes();
@@ -72,7 +72,8 @@ public:
 
   virtual G4VPhysicalVolume* Construct();
 
-  G4LogicalVolume* GetScoringVolume() const{ return fScoringVolume; }
+  std::vector<G4LogicalVolume*> const& GetScoringVolumes() const{ return fScoringVolumes; }
+  G4double GetScoringVolumesTotalMass() const;
 
 };
 
