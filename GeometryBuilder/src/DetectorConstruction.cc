@@ -1821,9 +1821,6 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     wedge_yposmin = ((G4double) nmodules_i) * (onesensor_Y + sep_Y_module_module) + wedge_yposinf;
   }
   while (doWedgeFarFace){ // Loop over columns
-    sensorhybrid_xpos.push_back(wedge_xpos);
-    coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
-
     wedge_yposmax = sqrt(fabs(pow(wedge_Rmax, 2) - pow(wedge_xpos + servicehybrid6_X/2., 2)));
     G4cout << "y min/max = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
     sensorhybrid_yminmax.push_back(std::pair<G4double, G4double>(wedge_yposmin, wedge_yposmin)); // wedge_yposmax is not exactly the location of the edge.
@@ -1858,6 +1855,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
           n_modules_per_side,
           logicWedgeActive_Far, reflectionTransformation, relpos
         );
+        i_object++;
 
         wedge_ypos += servicehybrid6_Y/2.;
         last_sensorhybrid_yminmax.second += servicehybrid6_Y;
@@ -1876,6 +1874,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
           n_modules_per_side,
           logicWedgeActive_Far, reflectionTransformation, relpos
         );
+        i_object++;
 
         wedge_ypos += servicehybrid12_Y/2.;
         last_sensorhybrid_yminmax.second += servicehybrid12_Y;
@@ -1890,11 +1889,14 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
         break;
       }
       }
-      i_object++;
 
       wedge_ypos += sep_Y_servicehybrid_servicehybrid;
       if (doPlaceSensorHybrid) last_sensorhybrid_yminmax.second += sep_Y_servicehybrid_servicehybrid;
       if (wedge_ypos>=wedge_yposmax) break;
+    }
+    if (i_object>0){
+      sensorhybrid_xpos.push_back(wedge_xpos);
+      coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
     }
     ix_service++;
     last_sensorhybrid_yminmax.second -= sep_Y_servicehybrid_servicehybrid;
@@ -1941,20 +1943,15 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
     G4cout << "Sensor y inf/sup = " << wedge_yposmin << " / " << wedge_yposmax << G4endl;
 
     bool firstColumn = (wedge_xpos<sensorhybrid_xpos.front());
-    bool firstColumn_OneSensorModule = (firstColumn && sensorhybrid_xpos.front()>=onesensor_X+sep_X_module_servicehybrid);
+    bool firstColumn_OneSensorModule = firstColumn;
     bool lastColumn = (wedge_xpos>sensorhybrid_xpos.back());
-    bool lastColumn_OneSensorModule = (lastColumn && (wedge_Rmax-sensorhybrid_xpos.back())>=onesensor_X+sep_X_module_servicehybrid);
+    bool lastColumn_OneSensorModule = lastColumn;
     bool useOneSensorModule = (firstColumn_OneSensorModule || lastColumn_OneSensorModule);
+    if (firstColumn) G4cout << "Placing the first column" << G4endl;
+    if (lastColumn) G4cout << "Placing the last column" << G4endl;
     G4double const& moduleWidthX = (useOneSensorModule ? onesensor_X : twosensor_X);
     G4double const& moduleWidthY = (useOneSensorModule ? onesensor_Y : twosensor_Y);
     G4cout << "Placing a set of " << (useOneSensorModule ? "one-" : "two-") << "sensor modules with width " << moduleWidthX << G4endl;
-
-    if (!useOneSensorModule){
-      coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
-      // Correct ymin for the common segment of service hybrids
-      if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend)
-        coolingpipes_xpos_ymin.back().second = std::max(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
-    }
 
     size_t i_object=0;
     wedge_ypos = wedge_yposmin;
@@ -2049,6 +2046,14 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes(){
       wedge_ypos += sep_Y_module_module;
       if (wedge_ypos>=wedge_yposmax) break;
     }
+
+    if (!useOneSensorModule && i_object>0){
+      coolingpipes_xpos_ymin.emplace_back(wedge_xpos, wedge_yposmin);
+      // Correct ymin for the common segment of service hybrids
+      if (moduleSensorHybridConnection_yminmax_left!=moduleSensorHybridConnection_yminmax_cend && moduleSensorHybridConnection_yminmax_right!=moduleSensorHybridConnection_yminmax_cend)
+        coolingpipes_xpos_ymin.back().second = std::max(moduleSensorHybridConnection_yminmax_left->first, moduleSensorHybridConnection_yminmax_right->first);
+    }
+
     ix_module++;
 
     wedge_xpos += (moduleWidthX/2. + sep_X_module_servicehybrid*2. + servicehybrid6_X);
